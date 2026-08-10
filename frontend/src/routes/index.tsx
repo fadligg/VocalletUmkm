@@ -11,6 +11,12 @@ import LoginUmkm from '../pages/LoginUmkm';
 import RegisterUmkm from '../pages/RegisterUmkm';
 import SetupUsaha from '../pages/SetupUsaha';
 
+import JurnalUmum from '../pages/LaporanMenu/JurnalUmum';
+import BukuBesar from '../pages/LaporanMenu/BukuBesar';
+import NeracaSaldo from '../pages/LaporanMenu/NeracaSaldo';
+import LabaRugi from '../pages/LaporanMenu/LabaRugi';
+import Neraca from '../pages/LaporanMenu/Neraca';
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -46,6 +52,26 @@ export const router = createBrowserRouter([
       {
         path: '/laporan',
         element: <Laporan />,
+      },
+      {
+        path: '/laporan/jurnal-umum',
+        element: <JurnalUmum />,
+      },
+      {
+        path: '/laporan/buku-besar',
+        element: <BukuBesar />,
+      },
+      {
+        path: '/laporan/neraca-saldo',
+        element: <NeracaSaldo />,
+      },
+      {
+        path: '/laporan/laba-rugi',
+        element: <LabaRugi />,
+      },
+      {
+        path: '/laporan/neraca',
+        element: <Neraca />,
       },
       {
         path: '/profil',
