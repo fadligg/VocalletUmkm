@@ -1,63 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 
-const TRANSACTIONS = [
-  {
-    id: 1,
-    title: 'Ambil Uang Pribadi (Prive)',
-    date: '10 Agustus 2026',
-    time: '16:22',
-    method: 'tunai',
-    trxId: 'TRX-92552110',
-    amount: 'Rp 200.000',
-    icon: 'twemoji:purse',
-    iconBg: 'bg-red-50',
-  },
-  {
-    id: 2,
-    title: 'Bayar Beban',
-    date: '10 Agustus 2026',
-    time: '16:22',
-    method: 'tunai',
-    trxId: 'TRX-9247578',
-    amount: 'Rp 500.000',
-    icon: 'twemoji:light-bulb',
-    iconBg: 'bg-emerald-50',
-  },
-  {
-    id: 3,
-    title: 'Bayar Beban',
-    date: '10 Agustus 2026',
-    time: '16:22',
-    method: 'tunai',
-    trxId: 'TRX-9237986',
-    amount: 'Rp 300.000',
-    icon: 'twemoji:light-bulb',
-    iconBg: 'bg-emerald-50',
-  },
-  {
-    id: 4,
-    title: 'Penjualan',
-    date: '10 Agustus 2026',
-    time: '16:22',
-    method: 'tunai',
-    trxId: 'TRX-9229284',
-    amount: 'Rp 3.200.000',
-    icon: 'twemoji:shopping-cart',
-    iconBg: 'bg-slate-100',
-  },
-  {
-    id: 5,
-    title: 'Pembelian Barang',
-    date: '10 Agustus 2026',
-    time: '16:22',
-    method: 'tunai',
-    trxId: 'TRX-9218299',
-    amount: 'Rp 2.000.000',
-    icon: 'twemoji:package',
-    iconBg: 'bg-orange-50',
-  },
-];
+import { useEffect } from 'react';
 
 const MODAL_TYPES = [
   { id: 'penjualan', label: 'Penjualan', icon: 'twemoji:shopping-cart' },
@@ -79,9 +23,30 @@ const MODAL_TYPES = [
 ];
 
 export default function Transaksi() {
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [activeForm, setActiveForm] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const res = await fetch('http://localhost:5001/api/transactions');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setTransactions(data);
+      } else {
+        console.error('API returned non-array:', data);
+        setTransactions([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch transactions', err);
+      setTransactions([]);
+    }
+  };
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -1144,24 +1109,34 @@ export default function Transaksi() {
       </div>
 
       <div className="space-y-3">
-        {TRANSACTIONS.map((trx) => (
+        {transactions.map((trx) => {
+          const typeInfo = MODAL_TYPES.find(t => t.id === trx.type) || { label: trx.type, icon: 'twemoji:page-facing-up', isBlue: false };
+          const iconBg = typeInfo.isBlue ? 'bg-blue-50' : 'bg-slate-100';
+
+          return (
           <div key={trx.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full ${trx.iconBg} flex items-center justify-center shrink-0`}>
-                <Icon icon={trx.icon} className="w-6 h-6" />
+              <div className={`w-12 h-12 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
+                <Icon icon={typeInfo.icon} className={`w-6 h-6 ${typeInfo.isBlue ? 'text-blue-500' : ''}`} />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-800 text-[15px] mb-0.5">{trx.title}</h3>
+                <h3 className="font-semibold text-slate-800 text-[15px] mb-0.5">{typeInfo.label}</h3>
                 <p className="text-xs text-slate-400">
-                  {trx.date} &middot; {trx.time} &middot; {trx.method} &middot; {trx.trxId}
+                  {new Date(trx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} &middot; {trx.payment_method} &middot; {trx.trx_id}
                 </p>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <span className="font-semibold text-slate-800">{trx.amount}</span>
+              <span className="font-semibold text-slate-800">Rp {parseFloat(trx.amount).toLocaleString('id-ID')}</span>
             </div>
           </div>
-        ))}
+          );
+        })}
+        {transactions.length === 0 && (
+          <div className="text-center py-10 text-slate-400 bg-white/40 rounded-2xl border border-dashed border-slate-200">
+            Belum ada transaksi.
+          </div>
+        )}
       </div>
 
       {/* Modal Tambah Transaksi */}

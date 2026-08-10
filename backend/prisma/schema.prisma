@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id             Int      @id @default(autoincrement())
+  trx_id         String   @unique
+  type           String
+  date           DateTime
+  amount         Decimal  @db.Decimal(15, 2)
+  payment_method String
+  description    String?  @db.Text
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  name      String
+  brand     String?
+  sku       String?
+  unit      String
+  minStock  Int      @default(0)
+  priceBuy  Decimal  @db.Decimal(15, 2)
+  priceSell Decimal  @db.Decimal(15, 2)
+  stock     Int      @default(0)
+  imageUrl  String?  @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}

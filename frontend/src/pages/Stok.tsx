@@ -1,33 +1,10 @@
-import React, { useState, useEffect } from 'react';
+  import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
-const initialProducts = [
-  {
-    id: 1,
-    name: 'Kajung',
-    code: '',
-    unit: 'pcs',
-    priceSell: '1.000',
-    priceBuy: '100',
-    stock: 12,
-    minStock: 1,
-    value: '1.200'
-  },
-  {
-    id: 2,
-    name: 'Kopi Sachet',
-    code: 'KP-001',
-    unit: 'pcs',
-    priceSell: '50.000',
-    priceBuy: '30.000',
-    stock: 60,
-    minStock: 20,
-    value: '1.800.000'
-  }
-];
+
 
 export default function Stok() {
-  const [productList, setProductList] = useState(initialProducts);
+  const [productList, setProductList] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Form State
@@ -35,21 +12,40 @@ export default function Stok() {
   const [merek, setMerek] = useState('');
   const [sku, setSku] = useState('');
   const [satuan, setSatuan] = useState('');
-  const [minStok, setMinStok] = useState('0');
   const [hargaBeli, setHargaBeli] = useState('');
   const [hargaJual, setHargaJual] = useState('');
-  const [stokAwal, setStokAwal] = useState('0');
+  const [stokAwal, setStokAwal] = useState('');
+  const [minStok, setMinStok] = useState('');
+  const [foto, setFoto] = useState<string | null>(null);
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Close tooltips when clicking anywhere else
   useEffect(() => {
     const handleClickOutside = () => setActiveTooltip(null);
     document.addEventListener('click', handleClickOutside);
+    fetchProducts();
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('http://localhost:5001/api/products');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setProductList(data);
+      } else {
+        console.error('API returned non-array:', data);
+        setProductList([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch products', err);
+      setProductList([]);
+    }
+  };
 
   const toggleTooltip = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -69,13 +65,44 @@ export default function Stok() {
     setMerek('');
     setSku('');
     setSatuan('');
-    setMinStok('0');
+    setMinStok('');
     setHargaBeli('');
     setHargaJual('');
-    setStokAwal('0');
+    setStokAwal('');
+    setFoto(null);
     setError('');
     setActiveTooltip(null);
+    setEditingId(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (product: any) => {
+    setNamaProduk(product.name);
+    setMerek(product.brand || '');
+    setSku(product.sku || '');
+    setSatuan(product.unit || '');
+    setMinStok(product.minStock.toString());
+    setHargaBeli(product.priceBuy.toString());
+    setHargaJual(product.priceSell.toString());
+    setStokAwal(product.stock.toString());
+    setFoto(product.imageUrl || null);
+    setError('');
+    setActiveTooltip(null);
+    setEditingId(product.id);
+    setIsModalOpen(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFoto(null);
+    }
   };
 
   const closeModal = () => {
@@ -105,29 +132,69 @@ export default function Stok() {
     }
 
     setIsLoading(true);
-    // Simulate API Call
-    setTimeout(() => {
-      // Calculate value
-      const beliRaw = parseFloat(hargaBeli.replace(/\./g, '')) || 0;
-      const stokAwalVal = parseInt(stokAwal) || 0;
-      const totalNilai = beliRaw * stokAwalVal;
-      
-      const newProduct = {
-        id: Date.now(),
-        name: namaProduk,
-        code: sku,
-        unit: satuan || 'pcs',
-        priceSell: hargaJual || '0',
-        priceBuy: hargaBeli || '0',
-        stock: stokAwalVal,
-        minStock: parseInt(minStok) || 0,
-        value: totalNilai > 0 ? formatCurrency(totalNilai.toString()) : '0'
-      };
+    
+    const beliRaw = parseFloat(hargaBeli.replace(/\./g, '')) || 0;
+    const jualRaw = parseFloat(hargaJual.replace(/\./g, '')) || 0;
+    const stokAwalVal = parseInt(stokAwal) || 0;
+    
+    const payload = {
+      name: namaProduk,
+      brand: merek,
+      sku: sku,
+      unit: satuan || 'pcs',
+      minStock: parseInt(minStok) || 0,
+      priceBuy: beliRaw,
+      priceSell: jualRaw,
+      stock: stokAwalVal,
+      imageUrl: foto
+    };
 
-      setProductList([newProduct, ...productList]);
-      setIsLoading(false);
-      setIsModalOpen(false);
-    }, 1000);
+    if (editingId) {
+      fetch(`http://localhost:5001/api/products/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(data => {
+          setProductList(productList.map(p => p.id === editingId ? data : p));
+          setIsLoading(false);
+          closeModal();
+        })
+        .catch(err => {
+          console.error('Failed to update product', err);
+          setError('Gagal memperbarui produk');
+          setIsLoading(false);
+        });
+    } else {
+      fetch('http://localhost:5001/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(data => {
+          setProductList([data, ...productList]);
+          setIsLoading(false);
+          closeModal();
+        })
+        .catch(err => {
+          console.error('Failed to save product', err);
+          setError('Gagal menyimpan produk');
+          setIsLoading(false);
+        });
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Yakin ingin menghapus produk ini?')) {
+      try {
+        await fetch(`http://localhost:5001/api/products/${id}`, { method: 'DELETE' });
+        setProductList(productList.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Failed to delete product', err);
+      }
+    }
   };
 
   return (
@@ -154,8 +221,12 @@ export default function Stok() {
           >
             <div className="flex gap-3 sm:gap-4">
               {/* Left Icon */}
-              <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-[#f4f7f9]/80 rounded-xl sm:rounded-2xl flex items-center justify-center text-slate-300">
-                <Icon icon="lucide:package" className="w-7 h-7 sm:w-8 sm:h-8" />
+              <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-[#f4f7f9]/80 rounded-xl sm:rounded-2xl flex items-center justify-center text-slate-300 overflow-hidden">
+                {product.imageUrl ? (
+                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Icon icon="lucide:package" className="w-7 h-7 sm:w-8 sm:h-8" />
+                )}
               </div>
 
               {/* Right Content */}
@@ -165,10 +236,10 @@ export default function Stok() {
                   <div className="flex flex-col min-w-0">
                     <h3 className="text-base sm:text-lg font-semibold text-slate-800 truncate">{product.name}</h3>
                     <p className="text-xs sm:text-sm text-slate-400 truncate mt-0.5">
-                      {product.code ? `${product.code} · ${product.unit}` : product.unit}
+                      {product.sku ? `${product.sku} · ${product.unit}` : product.unit}
                     </p>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1 sm:mt-1.5 truncate">
-                      Jual: Rp {product.priceSell} &middot; Beli: Rp {product.priceBuy}
+                      Jual: Rp {formatCurrency(product.priceSell.toString())} &middot; Beli: Rp {formatCurrency(product.priceBuy.toString())}
                     </p>
                   </div>
                   <div className="flex flex-col items-end sm:items-center shrink-0">
@@ -183,15 +254,18 @@ export default function Stok() {
                 {/* Bottom Info */}
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3 sm:gap-4">
                   <span className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                    Min: {product.minStock} &middot; Nilai: Rp {product.value}
+                    Min: {product.minStock} &middot; Nilai: Rp {formatCurrency((parseFloat(product.priceBuy) * parseInt(product.stock)).toString())}
                   </span>
                   <div className="flex gap-4 shrink-0 w-full justify-end sm:w-auto">
-                    <button className="text-slate-400 hover:text-blue-600 transition-colors p-1 sm:p-0">
+                    <button 
+                      className="text-slate-400 hover:text-blue-600 transition-colors p-1 sm:p-0"
+                      onClick={() => handleEdit(product)}
+                    >
                       <Icon icon="lucide:pencil" className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button 
                       className="text-red-500 hover:text-red-700 transition-colors p-1 sm:p-0"
-                      onClick={() => setProductList(productList.filter(p => p.id !== product.id))}
+                      onClick={() => handleDelete(product.id)}
                     >
                       <Icon icon="lucide:trash-2" className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
@@ -219,7 +293,7 @@ export default function Stok() {
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[420px] max-h-[90vh] flex flex-col animate-[fadeIn_0.2s_ease-out]">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 shrink-0">
-              <h2 className="text-lg font-bold text-slate-800 text-center flex-1 ml-8">Tambah Produk</h2>
+              <h2 className="text-lg font-bold text-slate-800 text-center flex-1 ml-8">{editingId ? 'Edit Produk' : 'Tambah Produk'}</h2>
               <button 
                 onClick={closeModal}
                 className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors active:bg-slate-200"
@@ -234,11 +308,17 @@ export default function Stok() {
               {/* Foto */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (opsional)</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  className="block w-full text-base sm:text-sm text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-200 rounded-lg p-1.5 transition-colors focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500" 
-                />
+                <div className="flex items-center gap-3">
+                  {foto && (
+                    <img src={foto} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-slate-200" />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="block w-full text-base sm:text-sm text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-200 rounded-lg p-1.5 transition-colors focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500" 
+                  />
+                </div>
               </div>
 
               {/* Nama Produk */}
