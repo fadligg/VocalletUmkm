@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 
 export default function BottomBar() {
   const navItems = [
-    { to: '/', icon: 'mdi:home-outline', activeIcon: 'mdi:home', label: 'Home' },
+    { to: '/home', icon: 'mdi:home-outline', activeIcon: 'mdi:home', label: 'Home' },
     { to: '/transaksi', icon: 'mdi:receipt-text-outline', activeIcon: 'mdi:receipt-text', label: 'Transaksi' },
     { to: '/stok', icon: 'mdi:package-variant-closed', activeIcon: 'mdi:package-variant', label: 'Stok' },
     { to: '/laporan', icon: 'mdi:chart-bar', activeIcon: 'mdi:chart-bar', label: 'Laporan' },
