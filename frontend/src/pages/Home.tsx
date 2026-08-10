@@ -189,12 +189,12 @@ export default function Home() {
       </div>
 
       {/* Floating Action Button (FAB) */}
-      <button 
+      {/* <button 
         className="fixed bottom-20 right-6 w-14 h-14 bg-[#0b7b3f] hover:bg-[#096634] text-white rounded-full flex items-center justify-center shadow-lg shadow-green-900/20 transition-transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-green-100 z-50"
         aria-label="Tambah Transaksi"
       >
         <Icon icon="mdi:plus" className="w-8 h-8" />
-      </button>
+      </button> */}
     </div>
   );
 }

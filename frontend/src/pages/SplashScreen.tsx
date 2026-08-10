@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoVocallet from '../assets/logo-vocallet.png';
+import logoLazismu from '../assets/logo-lazismu.png';
 
 const SplashScreen = () => {
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ const SplashScreen = () => {
         <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2 z-10">
           <p className="text-xs text-green-800 font-bold px-3">Didukung Oleh:</p>
           <div className="flex items-center bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-md border border-green-100" aria-label="Didukung oleh Lazismu">
-            <img src="/assets/logo-lazismu.png" alt="Logo Lazismu" className="h-12 md:h-24 object-contain" />
+            <img src={logoLazismu} alt="Logo Lazismu" className="h-12 md:h-24 object-contain" />
           </div>
         </div>  
       </footer>
