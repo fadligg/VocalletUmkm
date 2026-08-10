@@ -2,6 +2,10 @@
 
 @theme {
   --font-sans: "Plus Jakarta Sans", sans-serif;
+  --color-brand-primary: #0b7b3f;
+  --color-brand-secondary: #4a5568;
+  --color-brand-light: #eaf5f0;
+  --color-brand-focus: #10b981; /* Defaulting to an emerald for focus rings if not specified */
 }
 
 body {
