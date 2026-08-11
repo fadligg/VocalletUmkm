@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useGoogleLogin } from '@react-oauth/google';
 import logoVocallet from '../assets/logo-vocallet.png';
 
 const LoginUmkm: React.FC = () => {
@@ -10,23 +12,59 @@ const LoginUmkm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     document.title = 'Login UMKM';
   }, []);
 
-  const loginDenganGoogle = () => {
-    // UI Mode only - Google login logic skipped
-    alert("Login Google ditekan. (Mode tampilan UI)");
-  };
+  const loginDenganGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setLoading(true);
+        setError('');
+        const res = await axios.post('http://localhost:5001/api/auth/google', {
+          accessToken: tokenResponse.access_token,
+        });
 
-  const handleSubmit = (e: React.FormEvent) => {
+        localStorage.setItem('vocallet_user_mode', 'umkm');
+        localStorage.setItem('vocallet_token', res.data.token);
+        localStorage.setItem('vocallet_user_email', res.data.user.email);
+        
+        navigate('/setup-usaha'); // Navigate to setup form after login
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Gagal login menggunakan Google');
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => {
+      setError('Gagal menghubungkan ke Google');
+    }
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login success to dashboard
-    localStorage.setItem('vocallet_user_mode', 'umkm');
-    localStorage.setItem('vocallet_token', 'mock_token_local_dev');
-    localStorage.setItem('vocallet_user_email', email || 'pemilik@umkm.com');
-    navigate('/setup-usaha'); // Navigate to setup form after login
+    try {
+      setLoading(true);
+      setError('');
+      
+      const res = await axios.post('http://localhost:5001/api/auth/login', {
+        email,
+        password
+      });
+
+      localStorage.setItem('vocallet_user_mode', 'umkm');
+      localStorage.setItem('vocallet_token', res.data.token);
+      localStorage.setItem('vocallet_user_email', res.data.user.email);
+      
+      navigate('/setup-usaha'); // Navigate to setup form after login
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Terjadi kesalahan saat login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -68,11 +106,18 @@ const LoginUmkm: React.FC = () => {
           <h1 className="text-2xl font-extrabold text-gray-800 tracking-tight text-left mb-1">Akses Akun Bisnis</h1>
           <p className="text-sm text-gray-500 text-left mb-6">Silakan masuk untuk mengelola portal UMKM Anda.</p>
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
+              {error}
+            </div>
+          )}
+
           {/* Button Masuk dengan Google */}
           <button 
             type="button"
-            onClick={loginDenganGoogle}
-            className="w-full flex items-center justify-center bg-[#008543] hover:bg-[#006e37] active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-focus cursor-pointer"
+            onClick={() => loginDenganGoogle()}
+            disabled={loading}
+            className="w-full flex items-center justify-center bg-[#008543] hover:bg-[#006e37] active:scale-[0.99] disabled:opacity-70 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-focus cursor-pointer"
           >
             <svg className="w-5 h-5 mr-3 bg-white p-0.5 rounded-full" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -168,9 +213,10 @@ const LoginUmkm: React.FC = () => {
             {/* Button Submit */}
             <button
               type="submit"
-              className="w-full bg-[#006B2C] hover:bg-[#005222] active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-full shadow-sm transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-focus cursor-pointer"
+              disabled={loading}
+              className="w-full bg-[#006B2C] hover:bg-[#005222] active:scale-[0.98] disabled:opacity-70 text-white font-bold py-3.5 px-4 rounded-full shadow-sm transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-focus cursor-pointer"
             >
-              Masuk ke Dashboard Bisnis
+              {loading ? 'Memproses...' : 'Masuk ke Dashboard Bisnis'}
             </button>
           </form>
 

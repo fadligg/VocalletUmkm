@@ -1,19 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 export default function Profil() {
   const navigate = useNavigate();
   
-  // State for form fields based on the screenshot
-  const [nama, setNama] = useState('kaju 23');
+  const [nama, setNama] = useState('');
   const [jenis, setJenis] = useState('Dagang');
-  const [telepon, setTelepon] = useState('sasasafasaf');
+  const [telepon, setTelepon] = useState('');
   const [pajak, setPajak] = useState('0');
-  const [alamat, setAlamat] = useState('98989');
-  const [tanggalMulai, setTanggalMulai] = useState('2026-01-01');
-  const [tanggalAkhir, setTanggalAkhir] = useState('2026-12-31');
+  const [alamat, setAlamat] = useState('');
+  const [tanggalMulai, setTanggalMulai] = useState('');
+  const [tanggalAkhir, setTanggalAkhir] = useState('');
   const [stokNegatif, setStokNegatif] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get('http://localhost:5001/api/business', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const { business } = res.data;
+        if (business) {
+          setNama(business.namaUsaha || '');
+          setJenis(business.jenisUsaha || 'Dagang');
+          setTelepon(business.noTelp || '');
+          setAlamat(business.alamat || '');
+          setTanggalMulai(business.tahunMulai ? business.tahunMulai.split('T')[0] : '');
+          setTanggalAkhir(business.tahunAkhir ? business.tahunAkhir.split('T')[0] : '');
+          setPajak(business.tarifPajak ? business.tarifPajak.toString() : '0');
+          setStokNegatif(business.stokNegatif || false);
+        }
+      } catch (err) {
+        console.error('Failed to fetch business', err);
+      }
+    };
+    fetchBusiness();
+  }, [navigate]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    
+    const token = localStorage.getItem('vocallet_token');
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      await axios.put('http://localhost:5001/api/business', {
+        namaUsaha: nama,
+        jenisUsaha: jenis,
+        noTelp: telepon,
+        alamat,
+        tahunMulai: tanggalMulai,
+        tahunAkhir: tanggalAkhir,
+        tarifPajak: parseFloat(pajak) || 0,
+        stokNegatif
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessage('Pengaturan berhasil disimpan!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.error || 'Gagal menyimpan pengaturan.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('vocallet_token');
@@ -41,7 +106,8 @@ export default function Profil() {
           </div>
         </div>
 
-        <form className="flex flex-col space-y-4">
+        <form onSubmit={handleSave} className="flex flex-col space-y-4">
+          {/* Form fields ... (same as before) */}
           {/* Nama Usaha */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Nama Usaha</label>
@@ -136,11 +202,15 @@ export default function Profil() {
             </label>
           </div>
 
+          {error && <div className="text-red-500 text-sm font-medium">{error}</div>}
+          {message && <div className="text-green-600 text-sm font-medium bg-green-50 p-2 rounded-md">{message}</div>}
+
           <button 
-            type="button" 
-            className="w-full bg-[#0b7b3f] hover:bg-[#096634] text-white font-bold py-3 mt-2 rounded-lg transition-colors focus:outline-none"
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-[#0b7b3f] hover:bg-[#096634] text-white font-bold py-3 mt-2 rounded-lg transition-colors focus:outline-none disabled:opacity-70"
           >
-            Simpan Pengaturan
+            {loading ? 'Menyimpan...' : 'Simpan Pengaturan'}
           </button>
         </form>
       </div>

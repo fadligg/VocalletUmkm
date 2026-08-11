@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Icon } from '@iconify/react';
 import {
   Chart as ChartJS,
@@ -21,54 +23,95 @@ ChartJS.register(
 );
 
 export default function Home() {
+  const navigate = useNavigate();
   const [periode, setPeriode] = useState('2026-08');
+  const [businessName, setBusinessName] = useState('Memuat...');
+  const [stats, setStats] = useState({
+    saldoKas: 0,
+    saldoBank: 0,
+    pendapatan: 0,
+    beban: 0,
+    labaBersih: 0,
+    piutang: 0,
+    utang: 0,
+    nilaiPersediaan: 0
+  });
+
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get('http://localhost:5001/api/business', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const { business, stats: fetchedStats } = res.data;
+        setBusinessName(business.namaUsaha || 'Usaha Saya');
+        setStats({
+          ...fetchedStats,
+          saldoKas: parseFloat(business.saldoKas),
+          saldoBank: parseFloat(business.saldoBank)
+        });
+      } catch (err) {
+        console.error('Failed to fetch business data:', err);
+      }
+    };
+    fetchBusinessData();
+  }, [navigate]);
+
+  const formatCurrency = (val: number) => {
+    return 'Rp ' + val.toLocaleString('id-ID');
+  };
 
   const cards = [
     {
       title: 'Saldo Kas',
-      value: 'Rp 8.000.000',
+      value: formatCurrency(stats.saldoKas),
       icon: 'mdi:wallet-outline',
       valueColor: 'text-[#0b7b3f]',
     },
     {
       title: 'Saldo Bank',
-      value: 'Rp 0',
+      value: formatCurrency(stats.saldoBank),
       icon: 'mdi:bank-outline',
       valueColor: 'text-[#0b7b3f]',
     },
     {
       title: 'Pendapatan',
-      value: 'Rp 2.000.000',
+      value: formatCurrency(stats.pendapatan),
       icon: 'mdi:chart-line',
       valueColor: 'text-blue-600',
     },
     {
       title: 'Beban + HPP',
-      value: 'Rp 2.000.000',
+      value: formatCurrency(stats.beban),
       icon: 'mdi:chart-line-down',
       valueColor: 'text-red-600',
     },
     {
       title: 'Laba Bersih',
-      value: 'Rp 0',
+      value: formatCurrency(stats.labaBersih),
       icon: 'mdi:wallet-bifold-outline',
       valueColor: 'text-[#0b7b3f]',
     },
     {
       title: 'Piutang',
-      value: 'Rp 0',
+      value: formatCurrency(stats.piutang),
       icon: 'mdi:card-account-details-outline',
       valueColor: 'text-slate-800',
     },
     {
       title: 'Utang',
-      value: 'Rp 0',
+      value: formatCurrency(stats.utang),
       icon: 'mdi:bank-minus',
       valueColor: 'text-slate-800',
     },
     {
       title: 'Nilai Persediaan',
-      value: 'Rp 1.801.200',
+      value: formatCurrency(stats.nilaiPersediaan),
       icon: 'mdi:package-variant-closed',
       valueColor: 'text-slate-800',
     },
@@ -147,7 +190,7 @@ export default function Home() {
         <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
           Selamat datang <span className="text-2xl">👋</span>
         </h1>
-        <p className="text-slate-500 font-medium text-sm mt-1">kaju 23</p>
+        <p className="text-slate-500 font-medium text-sm mt-1">{businessName}</p>
         
         {/* Period Selector */}
         <div className="mt-3 inline-flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm focus-within:ring-2 focus-within:ring-[#0b7b3f] transition-all">
@@ -186,6 +229,27 @@ export default function Home() {
         <div className="h-48 w-full">
           <Bar data={chartData} options={chartOptions} />
         </div>
+      </div>
+
+      {/* Hitung Zakat Card */}
+      <div className="mt-6">
+        <Link 
+          to="/pilihan-zakat" 
+          className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-slate-100 p-4 transition-transform active:scale-[0.98] hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-[#0b7b3f]">
+              <Icon icon="mdi:calculator-variant-outline" className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Hitung Zakat</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Kalkulasi dan tunaikan zakat usaha Anda</p>
+            </div>
+          </div>
+          <div className="text-slate-400">
+            <Icon icon="mdi:chevron-right" className="w-6 h-6" />
+          </div>
+        </Link>
       </div>
 
       {/* Floating Action Button (FAB) */}

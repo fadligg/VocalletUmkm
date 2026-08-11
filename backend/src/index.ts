@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import transactionRoutes from './routes/transaction.routes';
 import productRoutes from './routes/product.routes';
+import authRoutes from './routes/auth.routes';
+import businessRoutes from './routes/business.routes';
 
 dotenv.config();
 
@@ -15,6 +17,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/business', businessRoutes);
 
 app.get('/', (req, res) => {
   res.send('Vocallet UMKM Backend is running!');

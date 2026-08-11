@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const SetupUsaha: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,13 @@ const SetupUsaha: React.FC = () => {
     return 'Rp ' + value.toLocaleString('id-ID');
   };
 
+  const formatCurrencyInput = (value: string | number) => {
+    if (value === 0 || value === '0') return '';
+    const numericValue = String(value).replace(/\D/g, '');
+    if (!numericValue) return '';
+    return parseInt(numericValue, 10).toLocaleString('id-ID');
+  };
+
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     if (namaUsaha.trim() === '') {
@@ -36,13 +44,48 @@ const SetupUsaha: React.FC = () => {
     setCurrentStep(1);
   };
 
-  const handleFinish = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, save this data to backend
-    console.log({
-      namaUsaha, jenisUsaha, noTelp, alamat, tahunMulai, tahunAkhir, saldoKas, saldoBank, totalModalAwal
-    });
-    navigate('/home');
+    setError('');
+    
+    const token = localStorage.getItem('vocallet_token');
+    if (!token) {
+      setError('Sesi telah berakhir. Silakan login kembali.');
+      setTimeout(() => navigate('/login-umkm'), 2000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const payload = {
+        namaUsaha,
+        jenisUsaha,
+        noTelp,
+        alamat,
+        tahunMulai,
+        tahunAkhir,
+        saldoKas,
+        saldoBank
+      };
+
+      await axios.post('http://localhost:5001/api/business/setup', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      // Navigate to home after successful setup
+      navigate('/home');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.error || 'Terjadi kesalahan saat menyimpan data usaha.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -128,9 +171,9 @@ const SetupUsaha: React.FC = () => {
             </div>
 
             {/* Tahun Buku */}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-bold text-gray-700 mb-1">Tahun Buku Mulai</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <label className="block text-sm font-bold text-gray-700 mb-1 truncate" title="Tahun Buku Mulai">Tahun Mulai</label>
                 <div className="relative">
                   <input
                     type="date"
@@ -140,8 +183,8 @@ const SetupUsaha: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-bold text-gray-700 mb-1">Tahun Buku Akhir</label>
+              <div className="min-w-0">
+                <label className="block text-sm font-bold text-gray-700 mb-1 truncate" title="Tahun Buku Akhir">Tahun Akhir</label>
                 <div className="relative">
                   <input
                     type="date"
@@ -174,23 +217,33 @@ const SetupUsaha: React.FC = () => {
             {/* Saldo Kas */}
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Saldo Awal Kas</label>
-              <input
-                type="number"
-                value={saldoKas}
-                onChange={(e) => setSaldoKas(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInput(saldoKas)}
+                  onChange={(e) => setSaldoKas(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-lg py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
+                />
+              </div>
             </div>
 
             {/* Saldo Bank */}
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Saldo Awal Bank</label>
-              <input
-                type="number"
-                value={saldoBank}
-                onChange={(e) => setSaldoBank(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInput(saldoBank)}
+                  onChange={(e) => setSaldoBank(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-lg py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
+                />
+              </div>
             </div>
 
             {/* Total Modal Awal */}
@@ -199,19 +252,27 @@ const SetupUsaha: React.FC = () => {
               <span className="text-sm font-bold text-gray-900">{formatCurrency(totalModalAwal)}</span>
             </div>
 
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
+                {error}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4">
               <button
                 type="button"
                 onClick={handleBack}
-                className="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition-colors focus:outline-none"
+                disabled={loading}
+                className="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition-colors focus:outline-none disabled:opacity-70"
               >
                 Kembali
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-[#006B2C] hover:bg-[#005222] text-white font-bold py-3 rounded-lg shadow-sm transition-colors focus:outline-none"
+                disabled={loading}
+                className="flex-1 bg-[#006B2C] hover:bg-[#005222] text-white font-bold py-3 rounded-lg shadow-sm transition-colors focus:outline-none disabled:opacity-70"
               >
-                Mulai Pencatatan
+                {loading ? 'Memproses...' : 'Mulai Pencatatan'}
               </button>
             </div>
           </form>

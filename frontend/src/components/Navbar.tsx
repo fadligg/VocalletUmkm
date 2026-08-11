@@ -16,7 +16,7 @@ export default function Navbar() {
           <Icon icon="mdi:moon-waning-crescent" className="w-6 h-6" />
         </button>
         {/* User Avatar with 'F' */}
-        <Link to="/profile" className="cursor-pointer">
+        <Link to="/profil" className="cursor-pointer">
           <div className="w-9 h-9 bg-[#0b7b3f] rounded-full flex items-center justify-center text-white font-semibold">
             F
           </div>
