@@ -152,9 +152,10 @@ const SetupUsaha: React.FC = () => {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Nomor Telepon (opsional)</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 value={noTelp}
-                onChange={(e) => setNoTelp(e.target.value)}
+                onChange={(e) => setNoTelp(e.target.value.replace(/\D/g, ''))}
                 className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
               />
             </div>
