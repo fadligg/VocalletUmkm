@@ -1,11 +1,18 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getTransactions = async (req: Request, res: Response) => {
+export const getTransactions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
     const transactions = await prisma.transaction.findMany({
+      where: { userId },
       orderBy: { date: 'desc' },
     });
     res.json(transactions);
@@ -14,11 +21,16 @@ export const getTransactions = async (req: Request, res: Response) => {
   }
 };
 
-export const getTransactionById = async (req: Request, res: Response) => {
+export const getTransactionById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
     const { id } = req.params;
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: Number(id) },
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: Number(id), userId },
     });
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
@@ -29,11 +41,17 @@ export const getTransactionById = async (req: Request, res: Response) => {
   }
 };
 
-export const createTransaction = async (req: Request, res: Response) => {
+export const createTransaction = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
     const { trx_id, type, date, amount, payment_method, description, metadata } = req.body;
     const transaction = await prisma.transaction.create({
       data: {
+        userId,
         trx_id,
         type,
         date: new Date(date),
@@ -50,9 +68,21 @@ export const createTransaction = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteTransaction = async (req: Request, res: Response) => {
+export const deleteTransaction = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
     const { id } = req.params;
+
+    const existing = await prisma.transaction.findFirst({ where: { id: Number(id), userId } });
+    if (!existing) {
+      res.status(404).json({ message: 'Transaction not found' });
+      return;
+    }
+
     await prisma.transaction.delete({
       where: { id: Number(id) },
     });

@@ -1,37 +1,61 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
 
 export default function Neraca() {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState('2026-08-11');
+  const [dataNeraca, setDataNeraca] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock Data
+  useEffect(() => {
+    const fetchNeraca = async () => {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get('http://localhost:5001/api/laporan/neraca', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDataNeraca(res.data);
+      } catch (error) {
+        console.error('Error fetching neraca:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNeraca();
+  }, [navigate]);
+
   const aktivaLancar = [
-    { nama: 'Kas', nominal: 8000000 },
-    { nama: 'Bank', nominal: 0 },
-    { nama: 'Piutang Usaha', nominal: 0 },
-    { nama: 'Persediaan', nominal: 1800000 },
+    { nama: 'Kas', nominal: dataNeraca?.aktivaLancar?.kas || 0 },
+    { nama: 'Bank', nominal: dataNeraca?.aktivaLancar?.bank || 0 },
+    { nama: 'Piutang Usaha', nominal: dataNeraca?.aktivaLancar?.piutangUsaha || 0 },
+    { nama: 'Persediaan', nominal: dataNeraca?.aktivaLancar?.persediaan || 0 },
   ];
   const totalAktivaLancar = aktivaLancar.reduce((s, i) => s + i.nominal, 0);
 
   const aktivaTetap = [
-    { nama: 'Peralatan Usaha', nominal: 0 },
-    { nama: 'Kendaraan', nominal: 0 },
+    { nama: 'Peralatan Usaha', nominal: dataNeraca?.aktivaTetap?.peralatanUsaha || 0 },
+    { nama: 'Kendaraan', nominal: dataNeraca?.aktivaTetap?.kendaraan || 0 },
   ];
   const totalAktivaTetap = aktivaTetap.reduce((s, i) => s + i.nominal, 0);
 
   const totalAktiva = totalAktivaLancar + totalAktivaTetap;
 
   const kewajiban = [
-    { nama: 'Utang Usaha', nominal: 0 },
-    { nama: 'Utang Bank', nominal: 0 },
+    { nama: 'Utang Usaha', nominal: dataNeraca?.kewajiban?.utangUsaha || 0 },
+    { nama: 'Utang Bank', nominal: dataNeraca?.kewajiban?.utangBank || 0 },
   ];
   const totalKewajiban = kewajiban.reduce((s, i) => s + i.nominal, 0);
 
   const modal = [
-    { nama: 'Modal Pemilik', nominal: 9800000 },
+    { nama: 'Modal Pemilik', nominal: dataNeraca?.modal?.modalPemilik || 0 },
   ];
   const totalModal = modal.reduce((s, i) => s + i.nominal, 0);
 
@@ -56,6 +80,10 @@ export default function Neraca() {
       </div>
     </div>
   );
+
+  if (loading) {
+    return <div className="p-10 text-center text-slate-500 font-semibold mt-20">Memuat Neraca...</div>;
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto font-sans relative pb-24 animate-in fade-in slide-in-from-right-4 duration-300">

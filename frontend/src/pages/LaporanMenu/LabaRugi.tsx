@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
@@ -7,21 +8,40 @@ import { exportToPdf } from '../../tools/exportPdf';
 const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu'];
 
 export default function LabaRugi() {
+  const navigate = useNavigate();
   const [selectedPeriode, setSelectedPeriode] = useState('Bulan ini');
   const [isPeriodeOpen, setIsPeriodeOpen] = useState(false);
 
-  // Mock Data based on screenshot
-  const penjualan = 2000000;
-  const hpp = 1200000;
-  const labaKotor = penjualan - hpp; // 800000
-  
-  const beban = [
-    { nama: 'Beban Gaji', nominal: 500000 },
-    { nama: 'Beban Listrik', nominal: 300000 },
-  ];
-  const totalBeban = beban.reduce((sum, b) => sum + b.nominal, 0); // 800000
-  
-  const labaBersih = labaKotor - totalBeban; // 0
+  const [dataLabaRugi, setDataLabaRugi] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLabaRugi = async () => {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get('http://localhost:5001/api/laporan/labarugi', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDataLabaRugi(res.data);
+      } catch (error) {
+        console.error('Error fetching laba rugi:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLabaRugi();
+  }, [navigate]);
+
+  const penjualan = dataLabaRugi?.penjualan || 0;
+  const hpp = dataLabaRugi?.hpp || 0;
+  const labaKotor = dataLabaRugi?.labaKotor || 0;
+  const beban = dataLabaRugi?.beban || [];
+  const totalBeban = dataLabaRugi?.totalBeban || 0;
+  const labaBersih = dataLabaRugi?.labaBersih || 0;
 
   const handleExportExcel = () => {
     exportToExcel([], `Laba_Rugi_${selectedPeriode}.xlsx`);
@@ -30,6 +50,10 @@ export default function LabaRugi() {
   const handleExportPdf = () => {
     exportToPdf([], `Laba_Rugi_${selectedPeriode}.pdf`);
   };
+
+  if (loading) {
+    return <div className="p-10 text-center text-slate-500 font-semibold mt-20">Memuat Laba Rugi...</div>;
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto font-sans relative pb-24 animate-in fade-in slide-in-from-right-4 duration-300">
