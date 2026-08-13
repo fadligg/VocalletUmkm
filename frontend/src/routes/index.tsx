@@ -11,6 +11,11 @@ import LoginUmkm from '../pages/LoginUmkm';
 import RegisterUmkm from '../pages/RegisterUmkm';
 import SetupUsaha from '../pages/SetupUsaha';
 import PelangganSekitar from '../pages/PelangganSekitar';
+import PilihanZakat from '../pages/Zakat/PilihanZakat';
+import ZakatFitrah from '../pages/Zakat/ZakatFitrah';
+import ZakatPerdagangan from '../pages/Zakat/ZakatPerdagangan';
+import ZakatMaal from '../pages/Zakat/ZakatMaal';
+import EdukasiZis from '../pages/Zakat/EdukasiZis';
 
 import JurnalUmum from '../pages/LaporanMenu/JurnalUmum';
 import BukuBesar from '../pages/LaporanMenu/BukuBesar';
@@ -81,6 +86,26 @@ export const router = createBrowserRouter([
       {
         path: '/pelanggan-sekitar',
         element: <PelangganSekitar />,
+      },
+      {
+        path: '/pilihan-zakat',
+        element: <PilihanZakat />,
+      },
+      {
+        path: '/pilihan-zakat/fitrah',
+        element: <ZakatFitrah />,
+      },
+      {
+        path: '/pilihan-zakat/perdagangan',
+        element: <ZakatPerdagangan />,
+      },
+      {
+        path: '/pilihan-zakat/maal',
+        element: <ZakatMaal />,
+      },
+      {
+        path: '/pilihan-zakat/edukasi',
+        element: <EdukasiZis />,
       },
     ],
   },

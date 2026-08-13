@@ -89,6 +89,10 @@ export default function Profil() {
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 pt-6 px-4 antialiased">
+      <button onClick={() => navigate('/home')} className="flex items-center gap-2 text-gray-600 mb-4 hover:text-gray-900 transition-colors">
+        <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+        <span className="font-semibold text-sm">Kembali ke Home</span>
+      </button>
       <h1 className="text-2xl font-extrabold text-[#0F2942] mb-4">Pengaturan Usaha</h1>
       
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 md:p-6 mb-6">

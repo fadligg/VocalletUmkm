@@ -1,11 +1,12 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, ScrollRestoration } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import BottomBar from '../components/BottomBar';
 
 export default function MainLayout() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <ScrollRestoration />
       <Navbar />
       
       {/* Main content area - Add padding top for navbar and padding bottom for bottom bar on mobile */}
