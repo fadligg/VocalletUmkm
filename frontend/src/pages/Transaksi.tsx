@@ -58,6 +58,23 @@ export default function Transaksi() {
     keterangan: 'Pembelian Barang'
   });
 
+  // Bayar Beban State
+    const [genericForm, setGenericForm] = useState({
+    tanggal: new Date().toISOString().split('T')[0],
+    nominal: '',
+    metodePembayaran: 'Tunai',
+    keterangan: '',
+    extraField: ''
+  });
+
+  const [formBayarBeban, setFormBayarBeban] = useState({
+    tanggal: new Date().toISOString().split('T')[0],
+    nominal: '',
+    jenisBeban: 'Beban Lain-lain',
+    metodePembayaran: 'Tunai',
+    keterangan: 'Bayar Beban'
+  });
+
   const formatCurrency = (val: string) => {
     const numericVal = val.replace(/\D/g, '');
     if (!numericVal) return '';
@@ -172,6 +189,85 @@ export default function Transaksi() {
           jumlah: formPembelian.jumlah,
           hargaBeli: formPembelian.hargaBeli,
           supplier: formPembelian.supplier
+        }
+      };
+
+      const url = editingId 
+        ? `http://localhost:5001/api/transactions/${editingId}`
+        : 'http://localhost:5001/api/transactions';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        fetchTransactions();
+        closeModal();
+      } else {
+        const errorText = await res.text();
+        console.error('Failed to save transaction:', errorText);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+    const handleSimpanGeneric = async () => {
+    try {
+      const amount = parseNum(genericForm.nominal);
+      let description = genericForm.keterangan || activeForm?.replace(/_/g, ' ') || 'Transaksi';
+      
+      const payload = {
+        trx_id: editingId && selectedTransaction ? selectedTransaction.trx_id : `TRX-${Date.now()}`,
+        type: activeForm,
+        date: genericForm.tanggal,
+        amount: amount,
+        payment_method: genericForm.metodePembayaran,
+        description: description,
+        metadata: {
+           extraField: genericForm.extraField
+        }
+      };
+
+      const url = editingId 
+        ? `http://localhost:5001/api/transactions/${editingId}`
+        : 'http://localhost:5001/api/transactions';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        fetchTransactions();
+        closeModal();
+      } else {
+        const errorText = await res.text();
+        console.error('Failed to save transaction:', errorText);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimpanBayarBeban = async () => {
+    try {
+      const amount = parseNum(formBayarBeban.nominal);
+
+      const payload = {
+        trx_id: editingId && selectedTransaction ? selectedTransaction.trx_id : `TRX-${Date.now()}`,
+        type: 'bayar_beban',
+        date: formBayarBeban.tanggal,
+        amount: amount,
+        payment_method: formBayarBeban.metodePembayaran,
+        description: formBayarBeban.keterangan || 'Bayar Beban',
+        metadata: {
+          jenisBeban: formBayarBeban.jenisBeban
         }
       };
 
@@ -420,43 +516,77 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input 
+                type="date" 
+                value={formBayarBeban.tanggal}
+                onChange={(e) => setFormBayarBeban({...formBayarBeban, tanggal: e.target.value})}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" 
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input 
+                type="text" 
+                value={formBayarBeban.nominal}
+                onChange={(e) => setFormBayarBeban({...formBayarBeban, nominal: formatCurrency(e.target.value)})}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" 
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Beban</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select 
+                value={formBayarBeban.jenisBeban}
+                onChange={(e) => setFormBayarBeban({...formBayarBeban, jenisBeban: e.target.value})}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer"
+              >
+                <option>Beban Sewa</option>
+                <option>Beban Listrik & Air</option>
+                <option>Beban Gaji</option>
                 <option>Beban Lain-lain</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select 
+                value={formBayarBeban.metodePembayaran}
+                onChange={(e) => setFormBayarBeban({...formBayarBeban, metodePembayaran: e.target.value})}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer"
+              >
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Bayar Beban" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea 
+                value={formBayarBeban.keterangan}
+                onChange={(e) => setFormBayarBeban({...formBayarBeban, keterangan: e.target.value})}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"
+              ></textarea>
             </div>
           </div>
 
           {/* Bayar Beban Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => {
+                if (editingId) {
+                  closeModal();
+                } else {
+                  setActiveForm(null);
+                }
+              }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanBayarBeban}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -487,41 +617,44 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan (opsional)</label>
-              <input type="text" placeholder="Nama pelanggan" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
+              <input type="text" placeholder="Nama pelanggan" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Terima Pembayaran Pelanggan" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Terima Pembayaran Pelanggan"></textarea>
             </div>
           </div>
 
           {/* Terima Pembayaran Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -552,41 +685,44 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nama Supplier</label>
-              <input type="text" placeholder="Nama supplier" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
+              <input type="text" placeholder="Nama supplier" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Bayar Utang" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Bayar Utang"></textarea>
             </div>
           </div>
 
           {/* Bayar Utang Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -617,36 +753,39 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Tambah Modal" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Tambah Modal"></textarea>
             </div>
           </div>
 
           {/* Tambah Modal Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -677,36 +816,39 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Ambil Uang Pribadi (Prive)" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Ambil Uang Pribadi (Prive)"></textarea>
             </div>
           </div>
 
           {/* Prive Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -737,17 +879,17 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nama Aset</label>
-              <input type="text" placeholder="Contoh: Gerobak, Kulkas" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
+              <input type="text" placeholder="Contoh: Gerobak, Kulkas" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
             </div>
 
             <div>
@@ -759,26 +901,29 @@ export default function Transaksi() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Beli Aset" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Beli Aset"></textarea>
             </div>
           </div>
 
           {/* Beli Aset Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -809,36 +954,39 @@ export default function Transaksi() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Terima Pinjaman" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Terima Pinjaman"></textarea>
             </div>
           </div>
 
           {/* Terima Pinjaman Form Footer */}
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button 
-              onClick={() => setActiveForm(null)}
+              onClick={() => { if (editingId) closeModal(); else setActiveForm(null); }}
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Kembali
             </button>
             <button 
+              onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
             >
               Simpan
@@ -862,36 +1010,38 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Pokok Pinjaman</label>
-                <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Bunga</label>
-                <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Bayar Cicilan Pinjaman" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Bayar Cicilan Pinjaman"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -913,38 +1063,40 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Penjualan yang Diretur</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
+              <select value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
                 <option value="" disabled selected>Pilih penjualan</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah Retur</label>
-                <input type="number" defaultValue="1" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Harga Jual/unit</label>
-                <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Retur Penjualan" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Retur Penjualan"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -966,38 +1118,40 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Pembelian yang Diretur</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
+              <select value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
                 <option value="" disabled selected>Pilih pembelian</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah Retur</label>
-                <input type="number" defaultValue="1" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Harga Beli/unit</label>
-                <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Retur Pembelian" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Retur Pembelian"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -1017,26 +1171,28 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Diskon Penjualan" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Diskon Penjualan"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -1056,11 +1212,11 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Produk</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
+              <select value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer text-slate-400">
                 <option value="" disabled selected>Pilih produk</option>
                 {products.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -1070,21 +1226,21 @@ export default function Transaksi() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah</label>
-                <input type="number" defaultValue="1" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.extraField} onChange={(e) => setGenericForm({...genericForm, extraField: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Harga Jual /unit</label>
-                <input type="number" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+                <input type="number" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Barang Rusak / Kadaluarsa" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Barang Rusak / Kadaluarsa"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -1104,26 +1260,28 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Bayar Ongkir" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Bayar Ongkir"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
@@ -1143,11 +1301,11 @@ export default function Transaksi() {
             <p className="text-sm text-slate-500 mb-2">Isi detail transaksi &mdash; sistem akan membuat jurnal otomatis</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
-              <input type="date" defaultValue="2026-08-11" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="date" value={genericForm.tanggal} onChange={(e) => setGenericForm({...genericForm, tanggal: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
-              <input type="number" defaultValue="0" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
+              <input type="text" value={genericForm.nominal} onChange={(e) => setGenericForm({...genericForm, nominal: formatCurrency(e.target.value)})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1165,18 +1323,20 @@ export default function Transaksi() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Metode Pembayaran</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
+              <select value={genericForm.metodePembayaran} onChange={(e) => setGenericForm({...genericForm, metodePembayaran: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
                 <option>Tunai</option>
+                <option>Transfer Bank</option>
+                <option>QRIS</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
-              <textarea defaultValue="Transaksi Lainnya" className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700"></textarea>
+              <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({...genericForm, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Transaksi Lainnya"></textarea>
             </div>
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
           </div>
         </>
       );
