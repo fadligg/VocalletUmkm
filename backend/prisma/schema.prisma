@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id             Int      @id @default(autoincrement())
+  trx_id         String   @unique
+  type           String
+  date           DateTime
+  amount         Decimal  @db.Decimal(15, 2)
+  payment_method String
+  description    String?  @db.Text
+  metadata       String?  @db.LongText
+  userId         Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "transactions_userId_fkey")
+  @@map("transactions")
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  name      String
+  brand     String?
+  sku       String?
+  unit      String
+  minStock  Int      @default(0)
+  priceBuy  Decimal  @db.Decimal(15, 2)
+  priceSell Decimal  @db.Decimal(15, 2)
+  stock     Int      @default(0)
+  imageUrl  String?  @db.LongText
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "products_userId_fkey")
+  @@map("products")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  password     String?
+  name         String?
+  googleId     String?       @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  businesses   Business[]
+  products     Product[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model Business {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  namaUsaha   String
+  jenisUsaha  String
+  noTelp      String?
+  alamat      String?
+  tahunMulai  DateTime
+  tahunAkhir  DateTime
+  saldoKas    Decimal  @default(0.000000000000000000000000000000)
+  saldoBank   Decimal  @default(0.000000000000000000000000000000)
+  tarifPajak  Decimal  @default(0.000000000000000000000000000000)
+  stokNegatif Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "businesses_userId_fkey")
+  @@map("businesses")
+}
