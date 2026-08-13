@@ -1,7 +1,7 @@
   import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
-
+import api from '../services/api';
 
 export default function Stok() {
   const [productList, setProductList] = useState<any[]>([]);
@@ -33,12 +33,11 @@ export default function Stok() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5001/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setProductList(data);
+      const res = await api.get('/products');
+      if (Array.isArray(res.data)) {
+        setProductList(res.data);
       } else {
-        console.error('API returned non-array:', data);
+        console.error('API returned non-array:', res.data);
         setProductList([]);
       }
     } catch (err) {
@@ -150,14 +149,9 @@ export default function Stok() {
     };
 
     if (editingId) {
-      fetch(`http://localhost:5001/api/products/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(res => res.json())
-        .then(data => {
-          setProductList(productList.map(p => p.id === editingId ? data : p));
+      api.put(`/products/${editingId}`, payload)
+        .then(res => {
+          setProductList(productList.map(p => p.id === editingId ? res.data : p));
           setIsLoading(false);
           closeModal();
         })
@@ -167,14 +161,9 @@ export default function Stok() {
           setIsLoading(false);
         });
     } else {
-      fetch('http://localhost:5001/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(res => res.json())
-        .then(data => {
-          setProductList([data, ...productList]);
+      api.post('/products', payload)
+        .then(res => {
+          setProductList([res.data, ...productList]);
           setIsLoading(false);
           closeModal();
         })
@@ -189,7 +178,7 @@ export default function Stok() {
   const handleDelete = async (id: number) => {
     if (confirm('Yakin ingin menghapus produk ini?')) {
       try {
-        await fetch(`http://localhost:5001/api/products/${id}`, { method: 'DELETE' });
+        await api.delete(`/products/${id}`);
         setProductList(productList.filter(p => p.id !== id));
       } catch (err) {
         console.error('Failed to delete product', err);

@@ -11,8 +11,23 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
+    const { q } = req.query;
+    
+    let whereClause: any = { userId };
+    
+    if (q && typeof q === 'string' && q.trim() !== '') {
+      whereClause = {
+        userId,
+        OR: [
+          { description: { contains: q } },
+          { trx_id: { contains: q } },
+          { type: { contains: q } },
+        ]
+      };
+    }
+
     const transactions = await prisma.transaction.findMany({
-      where: { userId },
+      where: whereClause,
       orderBy: { date: 'desc' },
     });
     res.json(transactions);

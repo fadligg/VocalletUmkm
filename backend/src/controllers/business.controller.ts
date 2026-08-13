@@ -20,7 +20,8 @@ export const setupBusiness = async (req: AuthRequest, res: Response): Promise<vo
       tahunMulai,
       tahunAkhir,
       saldoKas,
-      saldoBank
+      saldoBank,
+      logoUrl
     } = req.body;
 
     if (!namaUsaha || !jenisUsaha || !tahunMulai || !tahunAkhir) {
@@ -39,6 +40,7 @@ export const setupBusiness = async (req: AuthRequest, res: Response): Promise<vo
         tahunAkhir: new Date(tahunAkhir),
         saldoKas: parseFloat(saldoKas) || 0,
         saldoBank: parseFloat(saldoBank) || 0,
+        logoUrl: logoUrl || null
       }
     });
 
@@ -58,7 +60,8 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
     }
 
     const business = await prisma.business.findFirst({
-      where: { userId }
+      where: { userId },
+      orderBy: { id: 'desc' }
     });
 
     if (!business) {
@@ -79,19 +82,73 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
     let beban = 0;
     let piutang = 0;
     let utang = 0;
+    
+    // Mulai dengan saldo awal dari data business
+    let kas = Number(business.saldoKas) || 0;
+    let bank = Number(business.saldoBank) || 0;
 
     transactions.forEach(t => {
-      const type = t.type.toLowerCase();
+      const type = t.type;
       const amount = Number(t.amount);
+      const isBank = t.payment_method === 'Transfer Bank' || t.payment_method === 'QRIS';
+      const isUtang = t.payment_method === 'Utang' || t.payment_method === 'Kredit';
+
+      const addCash = (val: number) => {
+        if (isBank) {
+          bank += val;
+        } else {
+          kas += val;
+        }
+      };
       
-      if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
-        pendapatan += amount;
-      } else if (type.includes('pengeluaran') || type.includes('pembelian') || type.includes('beban') || type === 'expense') {
-        beban += amount;
-      } else if (type.includes('piutang')) {
-        piutang += amount;
-      } else if (type.includes('utang')) {
-        utang += amount;
+      switch (type) {
+        case 'penjualan':
+          pendapatan += amount;
+          if (isUtang) piutang += amount;
+          else addCash(amount);
+          break;
+        case 'diskon_penjualan':
+        case 'retur_penjualan':
+          pendapatan -= amount;
+          if (!isUtang) addCash(-amount);
+          break;
+        case 'pembelian_barang':
+          if (isUtang) utang += amount;
+          else addCash(-amount);
+          break;
+        case 'retur_pembelian':
+          beban -= amount;
+          if (!isUtang) addCash(amount);
+          break;
+        case 'bayar_beban':
+        case 'bayar_ongkir':
+        case 'barang_rusak':
+          beban += amount;
+          if (isUtang) utang += amount;
+          else addCash(-amount);
+          break;
+        case 'terima_pembayaran':
+          piutang -= amount;
+          addCash(amount);
+          break;
+        case 'bayar_utang':
+        case 'bayar_cicilan':
+          utang -= amount;
+          addCash(-amount);
+          break;
+        case 'terima_pinjaman':
+          utang += amount;
+          addCash(amount);
+          break;
+        case 'tambah_modal':
+          addCash(amount);
+          break;
+        case 'beli_aset':
+        case 'prive':
+        case 'transaksi_lainnya':
+          if (isUtang) utang += amount;
+          else addCash(-amount);
+          break;
       }
     });
 
@@ -107,7 +164,9 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
       labaBersih,
       piutang,
       utang,
-      nilaiPersediaan
+      nilaiPersediaan,
+      saldoKas: kas,
+      saldoBank: bank
     };
 
     res.status(200).json({ business, stats });
@@ -133,11 +192,13 @@ export const updateBusiness = async (req: AuthRequest, res: Response): Promise<v
       tahunMulai,
       tahunAkhir,
       tarifPajak,
-      stokNegatif
+      stokNegatif,
+      logoUrl
     } = req.body;
 
     const existingBusiness = await prisma.business.findFirst({
-      where: { userId }
+      where: { userId },
+      orderBy: { id: 'desc' }
     });
 
     if (!existingBusiness) {
@@ -155,7 +216,8 @@ export const updateBusiness = async (req: AuthRequest, res: Response): Promise<v
         tahunMulai: tahunMulai ? new Date(tahunMulai) : existingBusiness.tahunMulai,
         tahunAkhir: tahunAkhir ? new Date(tahunAkhir) : existingBusiness.tahunAkhir,
         tarifPajak: tarifPajak ? parseFloat(tarifPajak) : existingBusiness.tarifPajak,
-        stokNegatif: stokNegatif !== undefined ? stokNegatif : existingBusiness.stokNegatif
+        stokNegatif: stokNegatif !== undefined ? stokNegatif : existingBusiness.stokNegatif,
+        logoUrl: logoUrl !== undefined ? logoUrl : existingBusiness.logoUrl
       }
     });
 

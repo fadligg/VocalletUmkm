@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-
-import { useEffect } from 'react';
+import api from '../services/api';
 
 const MODAL_TYPES = [
   { id: 'penjualan', label: 'Penjualan', icon: 'twemoji:shopping-cart' },
@@ -32,6 +31,7 @@ export default function Transaksi() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Penjualan State
   const [formPenjualan, setFormPenjualan] = useState({
@@ -84,18 +84,24 @@ export default function Transaksi() {
   const parseNum = (val: string) => parseInt(val.replace(/\D/g, '')) || 0;
 
   useEffect(() => {
-    fetchTransactions();
     fetchProducts();
   }, []);
 
-  const fetchTransactions = async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTransactions(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchTransactions = async (query = searchQuery) => {
     try {
-      const res = await fetch('http://localhost:5001/api/transactions');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTransactions(data);
+      const endpoint = query ? `/transactions?q=${encodeURIComponent(query)}` : '/transactions';
+      const res = await api.get(endpoint);
+      if (Array.isArray(res.data)) {
+        setTransactions(res.data);
       } else {
-        console.error('API returned non-array:', data);
+        console.error('API returned non-array:', res.data);
         setTransactions([]);
       }
     } catch (err) {
@@ -106,10 +112,9 @@ export default function Transaksi() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5001/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setProducts(data);
+      const res = await api.get('/products');
+      if (Array.isArray(res.data)) {
+        setProducts(res.data);
       }
     } catch (err) {
       console.error('Failed to fetch products', err);
@@ -151,23 +156,15 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId 
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        console.error('Failed to save transaction');
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
     }
@@ -192,24 +189,15 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId 
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
     }
@@ -232,24 +220,15 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId 
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
     }
@@ -271,24 +250,15 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId 
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
     }
@@ -1532,6 +1502,8 @@ export default function Transaksi() {
         <input
           type="text"
           placeholder="Cari transaksi..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] focus:border-transparent text-slate-700 placeholder-slate-400"
         />
       </div>
@@ -1760,8 +1732,46 @@ export default function Transaksi() {
                        setEditingId(selectedTransaction.id);
                        setIsDetailModalOpen(false);
                        setIsModalOpen(true);
+                   } else if (selectedTransaction.type === 'bayar_beban') {
+                     let meta: any = selectedTransaction.metadata;
+                     if (typeof meta === 'string') {
+                       try { meta = JSON.parse(meta); if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) {}
+                     }
+                     meta = meta || {};
+                     
+                     setFormBayarBeban({
+                       tanggal: selectedTransaction.date.split('T')[0],
+                       nominal: selectedTransaction.amount.toString(),
+                       jenisBeban: meta.jenisBeban || 'Beban Lain-lain',
+                       metodePembayaran: selectedTransaction.payment_method || 'Tunai',
+                       keterangan: selectedTransaction.description || ''
+                     });
+                     
+                     setSelectedType('bayar_beban');
+                     setActiveForm('bayar_beban');
+                     setEditingId(selectedTransaction.id);
+                     setIsDetailModalOpen(false);
+                     setIsModalOpen(true);
                    } else {
-                     alert('Edit untuk jenis transaksi ini belum didukung saat ini.');
+                     let meta: any = selectedTransaction.metadata;
+                     if (typeof meta === 'string') {
+                       try { meta = JSON.parse(meta); if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) {}
+                     }
+                     meta = meta || {};
+                     
+                     setGenericForm({
+                       tanggal: selectedTransaction.date.split('T')[0],
+                       nominal: selectedTransaction.amount.toString(),
+                       metodePembayaran: selectedTransaction.payment_method || 'Tunai',
+                       keterangan: selectedTransaction.description || '',
+                       extraField: meta.extraField || meta.pelanggan || meta.supplier || ''
+                     });
+                     
+                     setSelectedType(selectedTransaction.type);
+                     setActiveForm(selectedTransaction.type);
+                     setEditingId(selectedTransaction.id);
+                     setIsDetailModalOpen(false);
+                     setIsModalOpen(true);
                    }
                  }}
                  className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors cursor-pointer flex justify-center items-center gap-1.5"

@@ -14,8 +14,11 @@ export default function Profil() {
   const [tanggalMulai, setTanggalMulai] = useState('');
   const [tanggalAkhir, setTanggalAkhir] = useState('');
   const [stokNegatif, setStokNegatif] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -40,13 +43,27 @@ export default function Profil() {
           setTanggalAkhir(business.tahunAkhir ? business.tahunAkhir.split('T')[0] : '');
           setPajak(business.tarifPajak ? business.tarifPajak.toString() : '0');
           setStokNegatif(business.stokNegatif || false);
+          setLogoUrl(business.logoUrl || '');
         }
       } catch (err) {
         console.error('Failed to fetch business', err);
+      } finally {
+        setIsFetching(false);
       }
     };
     fetchBusiness();
   }, [navigate]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +83,8 @@ export default function Profil() {
         tahunMulai: tanggalMulai,
         tahunAkhir: tanggalAkhir,
         tarifPajak: parseFloat(pajak) || 0,
-        stokNegatif
+        stokNegatif,
+        logoUrl
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -98,12 +116,29 @@ export default function Profil() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 md:p-6 mb-6">
         {/* Profile Picture Upload */}
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 bg-[#0b7b3f] text-white rounded-full flex items-center justify-center text-xl font-bold">
-            K
+          <div className="w-16 h-16 bg-[#0b7b3f] text-white rounded-full flex items-center justify-center text-xl font-bold overflow-hidden relative">
+            {isFetching ? (
+              <div className="absolute inset-0 bg-slate-200 animate-pulse rounded-full" />
+            ) : logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              nama ? nama.charAt(0).toUpperCase() : 'U'
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-slate-800 mb-1.5">Foto Profil / Logo Usaha</p>
-            <button className="flex items-center gap-1.5 bg-[#0b7b3f] text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-[#096634] transition-colors">
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden" 
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 bg-[#0b7b3f] text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-[#096634] transition-colors"
+            >
               <Icon icon="mdi:camera-outline" className="w-4 h-4" />
               Upload Foto
             </button>
@@ -143,8 +178,10 @@ export default function Profil() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Nomor Telepon</label>
               <input 
                 type="text" 
+                inputMode="numeric"
+                maxLength={15}
                 value={telepon}
-                onChange={(e) => setTelepon(e.target.value)}
+                onChange={(e) => setTelepon(e.target.value.replace(/\D/g, ''))}
                 className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#0b7b3f] focus:ring-1 focus:ring-[#0b7b3f]" 
               />
             </div>
