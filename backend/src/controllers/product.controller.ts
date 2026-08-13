@@ -42,7 +42,8 @@ export const createProduct = async (req: Request, res: Response) => {
         priceBuy,
         priceSell,
         stock: Number(stock) || 0,
-        imageUrl
+        imageUrl,
+        userId: 1
       },
     });
     res.status(201).json(product);
@@ -67,7 +68,8 @@ export const updateProduct = async (req: Request, res: Response) => {
         priceBuy,
         priceSell,
         stock: stock !== undefined ? Number(stock) : undefined,
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined
+        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        userId: 1
       },
     });
     res.json(product);

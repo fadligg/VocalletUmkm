@@ -10,6 +10,7 @@ import Profil from '../pages/Profil';
 import LoginUmkm from '../pages/LoginUmkm';
 import RegisterUmkm from '../pages/RegisterUmkm';
 import SetupUsaha from '../pages/SetupUsaha';
+import PelangganSekitar from '../pages/PelangganSekitar';
 
 import JurnalUmum from '../pages/LaporanMenu/JurnalUmum';
 import BukuBesar from '../pages/LaporanMenu/BukuBesar';
@@ -76,6 +77,10 @@ export const router = createBrowserRouter([
       {
         path: '/profil',
         element: <Profil />,
+      },
+      {
+        path: '/pelanggan-sekitar',
+        element: <PelangganSekitar />,
       },
     ],
   },

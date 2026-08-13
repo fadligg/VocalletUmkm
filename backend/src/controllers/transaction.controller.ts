@@ -40,7 +40,8 @@ export const createTransaction = async (req: Request, res: Response) => {
         amount,
         payment_method,
         description,
-        metadata: metadata || {},
+        metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : '{}',
+        userId: 1,
       },
     });
     res.status(201).json(transaction);
@@ -58,5 +59,28 @@ export const deleteTransaction = async (req: Request, res: Response) => {
     res.json({ message: 'Transaction deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete transaction', error });
+  }
+};
+
+export const updateTransaction = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { trx_id, type, date, amount, payment_method, description, metadata } = req.body;
+    const transaction = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: {
+        trx_id,
+        type,
+        date: new Date(date),
+        amount,
+        payment_method,
+        description,
+        metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : '{}',
+        userId: 1,
+      },
+    });
+    res.json(transaction);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update transaction', error });
   }
 };
