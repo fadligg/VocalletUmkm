@@ -293,22 +293,22 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
       let relevant = false;
 
       if (kodeAkun === '1001' && !isBank) {
-        if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income') {
+        if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income' || type === 'tambah_modal' || type === 'terima_pinjaman' || type === 'terima_pembayaran' || type === 'retur_pembelian') {
           debit = amount; relevant = true;
-        } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense') {
+        } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense' || type === 'beli_aset' || type === 'bayar_utang' || type === 'bayar_cicilan' || type === 'prive' || type === 'retur_penjualan' || type === 'diskon_penjualan' || type === 'bayar_ongkir' || type === 'transaksi_lainnya') {
           credit = amount; relevant = true;
         }
       } else if (kodeAkun === '1002' && isBank) {
-        if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income') {
+        if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income' || type === 'tambah_modal' || type === 'terima_pinjaman' || type === 'terima_pembayaran' || type === 'retur_pembelian') {
           debit = amount; relevant = true;
-        } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense') {
+        } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense' || type === 'beli_aset' || type === 'bayar_utang' || type === 'bayar_cicilan' || type === 'prive' || type === 'retur_penjualan' || type === 'diskon_penjualan' || type === 'bayar_ongkir' || type === 'transaksi_lainnya') {
           credit = amount; relevant = true;
         }
       } else if (kodeAkun === '4001' && (type.includes('pemasukan') || type.includes('penjualan') || type === 'income')) {
         credit = amount; relevant = true;
-      } else if (kodeAkun === '5001' && (type.includes('hpp') || type.includes('pembelian stok'))) {
+      } else if (kodeAkun === '5001' && (type.includes('hpp') || type.includes('pembelian stok') || type === 'pembelian_barang')) {
         debit = amount; relevant = true;
-      } else if ((kodeAkun as string).startsWith('6') && (type.includes('pengeluaran') || type.includes('beban') || type === 'expense')) {
+      } else if ((kodeAkun as string).startsWith('6') && (type.includes('pengeluaran') || type.includes('beban') || type === 'expense' || type === 'bayar_beban' || type === 'bayar_ongkir' || type === 'transaksi_lainnya' || type === 'barang_rusak' || type === 'diskon_penjualan' || type === 'retur_penjualan')) {
         const desc = t.description?.toLowerCase() || '';
         let matched = false;
         if (kodeAkun === '6001' && desc.includes('gaji')) matched = true;
@@ -320,17 +320,23 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
           debit = amount; relevant = true;
         }
       } else if (kodeAkun === '2001') {
-        if (type.includes('utang') && !type.includes('bayar')) {
+        if (type.includes('utang') && !type.includes('bayar') || type === 'terima_pinjaman') {
           credit = amount; relevant = true;
-        } else if (type.includes('bayar utang')) {
+        } else if (type.includes('bayar utang') || type === 'bayar_utang' || type === 'bayar_cicilan') {
           debit = amount; relevant = true;
         }
       } else if (kodeAkun === '1101') {
-        if (type.includes('piutang') && !type.includes('terima')) {
+        if (type.includes('piutang') && !type.includes('terima') && type !== 'terima_pembayaran') {
           debit = amount; relevant = true;
-        } else if (type.includes('terima piutang') || type.includes('bayar piutang')) {
+        } else if (type.includes('terima piutang') || type.includes('bayar piutang') || type === 'terima_pembayaran') {
           credit = amount; relevant = true;
         }
+      } else if (kodeAkun === '1201' && type === 'beli_aset') {
+        debit = amount; relevant = true;
+      } else if (kodeAkun === '3001' && type === 'tambah_modal') {
+        credit = amount; relevant = true;
+      } else if (kodeAkun === '3101' && type === 'prive') {
+        debit = amount; relevant = true;
       }
 
       if (relevant) {
@@ -390,10 +396,10 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
       if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
         entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
         entries.push({ accountCode: '4001', accountName: 'Penjualan', debit: 0, credit: amount });
-      } else if (type.includes('hpp') || type.includes('pembelian stok')) {
+      } else if (type.includes('hpp') || type.includes('pembelian stok') || type === 'pembelian_barang') {
         entries.push({ accountCode: '5001', accountName: 'Harga Pokok Penjualan', debit: amount, credit: 0 });
         entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
-      } else if (type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
+      } else if (type.includes('pengeluaran') || type.includes('beban') || type === 'expense' || type === 'bayar_beban') {
         let bebanCode = '6004';
         let bebanName = 'Beban Lain-lain';
         const desc = t.description?.toLowerCase() || '';
@@ -404,27 +410,39 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
 
         entries.push({ accountCode: bebanCode, accountName: bebanName, debit: amount, credit: 0 });
         entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
-      } else if (type.includes('piutang')) {
-        if (type.includes('terima')) {
+      } else if (type.includes('piutang') || type === 'terima_pembayaran') {
+        if (type.includes('terima') || type === 'terima_pembayaran') {
           entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
           entries.push({ accountCode: '1101', accountName: 'Piutang Usaha', debit: 0, credit: amount });
         } else {
           entries.push({ accountCode: '1101', accountName: 'Piutang Usaha', debit: amount, credit: 0 });
           entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
         }
-      } else if (type.includes('utang')) {
-        if (type.includes('bayar')) {
+      } else if (type.includes('utang') || type === 'bayar_utang' || type === 'terima_pinjaman' || type === 'bayar_cicilan') {
+        if (type.includes('bayar') || type === 'bayar_utang' || type === 'bayar_cicilan') {
           entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: amount, credit: 0 });
           entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
         } else {
           entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
           entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: 0, credit: amount });
         }
-      } else if (type.includes('modal') || type.includes('investasi')) {
+      } else if (type.includes('modal') || type.includes('investasi') || type === 'tambah_modal') {
         entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
         entries.push({ accountCode: '3001', accountName: 'Modal Pemilik', debit: 0, credit: amount });
       } else if (type.includes('prive') || type.includes('pribadi')) {
         entries.push({ accountCode: '3101', accountName: 'Prive', debit: amount, credit: 0 });
+        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
+      } else if (type === 'beli_aset') {
+        entries.push({ accountCode: '1201', accountName: 'Aset Tetap', debit: amount, credit: 0 });
+        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
+      } else if (type === 'retur_penjualan' || type === 'diskon_penjualan') {
+        entries.push({ accountCode: '4002', accountName: 'Retur/Diskon Penjualan', debit: amount, credit: 0 });
+        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
+      } else if (type === 'retur_pembelian') {
+        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
+        entries.push({ accountCode: '5002', accountName: 'Retur Pembelian', debit: 0, credit: amount });
+      } else if (type === 'bayar_ongkir' || type === 'transaksi_lainnya' || type === 'barang_rusak') {
+        entries.push({ accountCode: '6004', accountName: 'Beban Lain-lain', debit: amount, credit: 0 });
         entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
       } else {
         // Fallback untuk semua transaksi lain, setidaknya tercatat
