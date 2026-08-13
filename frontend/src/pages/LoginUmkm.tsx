@@ -32,7 +32,11 @@ const LoginUmkm: React.FC = () => {
         localStorage.setItem('vocallet_token', res.data.token);
         localStorage.setItem('vocallet_user_email', res.data.user.email);
         
-        navigate('/setup-usaha'); // Navigate to setup form after login
+        if (res.data.hasBusiness) {
+          navigate('/home'); // Go to dashboard if business is already set up
+        } else {
+          navigate('/setup-usaha'); // Navigate to setup form after login
+        }
       } catch (err: any) {
         setError(err.response?.data?.error || 'Gagal login menggunakan Google');
       } finally {
@@ -59,7 +63,11 @@ const LoginUmkm: React.FC = () => {
       localStorage.setItem('vocallet_token', res.data.token);
       localStorage.setItem('vocallet_user_email', res.data.user.email);
       
-      navigate('/setup-usaha'); // Navigate to setup form after login
+      if (res.data.hasBusiness) {
+        navigate('/home'); // Go to dashboard if business is already set up
+      } else {
+        navigate('/setup-usaha'); // Navigate to setup form after login
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Terjadi kesalahan saat login');
     } finally {

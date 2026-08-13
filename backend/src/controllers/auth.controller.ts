@@ -60,6 +60,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const business = await prisma.business.findFirst({ where: { userId: user.id } });
+
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
       expiresIn: '7d',
     });
@@ -72,6 +74,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         name: user.name,
       },
+      hasBusiness: !!business
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -130,6 +133,8 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       expiresIn: '7d',
     });
 
+    const business = await prisma.business.findFirst({ where: { userId: user.id } });
+
     res.status(200).json({
       message: 'Google login successful',
       token,
@@ -138,6 +143,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
         email: user.email,
         name: user.name,
       },
+      hasBusiness: !!business
     });
   } catch (error: any) {
     console.error('Google login error:', error);
