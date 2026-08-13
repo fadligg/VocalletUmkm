@@ -26,29 +26,50 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
     let pendapatan = 0;
     let beban = 0;
 
+    let peralatan = 0; 
+    let kendaraan = 0;
+    let utangBank = 0;
+
     transactions.forEach(t => {
       const type = t.type.toLowerCase();
       const amount = Number(t.amount);
       const isBank = t.payment_method?.toLowerCase().includes('bank') || t.payment_method?.toLowerCase().includes('transfer');
+      const isUtangPayment = t.payment_method?.toLowerCase() === 'utang';
 
-      if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
+      if (['penjualan', 'tambah_modal', 'terima_pinjaman', 'terima_pembayaran', 'retur_pembelian'].includes(type) || type.includes('pemasukan') || type === 'income') {
         pendapatan += amount;
-        if (isBank) bank += amount; else kas += amount;
-      } else if (type.includes('pengeluaran') || type.includes('pembelian') || type.includes('beban') || type === 'expense') {
+        if (isUtangPayment && type.includes('penjualan')) {
+          piutang += amount;
+        } else {
+          if (isBank) bank += amount; else kas += amount;
+        }
+      } else if (['pembelian_barang', 'bayar_beban', 'bayar_utang', 'bayar_cicilan', 'prive', 'beli_aset', 'retur_penjualan', 'diskon_penjualan', 'bayar_ongkir', 'transaksi_lainnya', 'barang_rusak'].includes(type) || type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
         beban += amount;
-        if (isBank) bank -= amount; else kas -= amount;
-      } else if (type.includes('piutang')) {
+        if (isUtangPayment && type === 'pembelian_barang') {
+          utangUsaha += amount;
+        } else {
+          if (isBank) bank -= amount; else kas -= amount;
+        }
+      } 
+      
+      if (type === 'terima_pembayaran') {
+        piutang -= amount;
+      } else if (type.includes('piutang') && !type.includes('terima')) {
         piutang += amount;
-      } else if (type.includes('utang')) {
+      } 
+      
+      if (type === 'bayar_utang' || type === 'bayar_cicilan') {
+        utangUsaha -= amount;
+      } else if (type.includes('utang') && !type.includes('bayar') || type === 'terima_pinjaman') {
         utangUsaha += amount;
-        if (isBank) bank += amount; else kas += amount;
+      }
+
+      if (type === 'beli_aset') {
+        peralatan += amount;
       }
     });
 
     const persediaan = products.reduce((sum, p) => sum + (p.stock * Number(p.priceBuy)), 0);
-    const peralatan = 0; 
-    const kendaraan = 0;
-    const utangBank = 0;
 
     const totalAktivaLancar = kas + bank + piutang + persediaan;
     const totalAktivaTetap = peralatan + kendaraan;
@@ -104,11 +125,15 @@ export const getLabaRugi = async (req: AuthRequest, res: Response): Promise<void
       const amount = Number(t.amount);
       const desc = t.description || 'Lainnya';
 
-      if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
+      if ((type.includes('penjualan') && type !== 'retur_penjualan' && type !== 'diskon_penjualan') || type.includes('pemasukan') || type === 'income') {
         penjualan += amount;
-      } else if (type.includes('hpp') || type.includes('pembelian stok') || type.includes('kulakan')) {
+      } else if (type === 'retur_penjualan' || type === 'diskon_penjualan') {
+        penjualan -= amount; // Kurangi penjualan kotor
+      } else if (type === 'pembelian_barang' || type.includes('hpp') || type.includes('pembelian stok') || type.includes('kulakan')) {
         hpp += amount;
-      } else if (type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
+      } else if (type === 'retur_pembelian') {
+        hpp -= amount;
+      } else if (type === 'bayar_beban' || type === 'bayar_ongkir' || type === 'transaksi_lainnya' || type === 'barang_rusak' || type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
         const bebanName = desc.toLowerCase().includes('beban') ? desc : `Beban ${desc}`;
         const key = bebanName.charAt(0).toUpperCase() + bebanName.slice(1);
         
@@ -177,27 +202,37 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
       const type = t.type.toLowerCase();
       const amount = Number(t.amount);
       const isBank = t.payment_method?.toLowerCase().includes('bank') || t.payment_method?.toLowerCase().includes('transfer');
+      const isUtangPayment = t.payment_method?.toLowerCase() === 'utang';
       const desc = t.description || 'Beban Lainnya';
 
-      if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
-        pendapatan += amount;
-        if (isBank) bank += amount; else kas += amount;
-      } else if (type.includes('hpp') || type.includes('pembelian stok') || type.includes('kulakan')) {
-        hpp += amount;
-        if (isBank) bank -= amount; else kas -= amount;
-      } else if (type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
-        const bebanName = desc.toLowerCase().includes('beban') ? desc : `Beban ${desc}`;
-        const key = bebanName.charAt(0).toUpperCase() + bebanName.slice(1);
-        if (bebanMap[key]) bebanMap[key] += amount;
-        else bebanMap[key] = amount;
+      if (['penjualan', 'tambah_modal', 'terima_pinjaman', 'terima_pembayaran', 'retur_pembelian'].includes(type) || type.includes('pemasukan') || type === 'income') {
+        if (['penjualan'].includes(type) || type.includes('penjualan')) pendapatan += amount;
+        if (isUtangPayment && type.includes('penjualan')) {
+          piutang += amount;
+        } else {
+          if (isBank) bank += amount; else kas += amount;
+        }
+      } else if (['pembelian_barang', 'bayar_beban', 'bayar_utang', 'bayar_cicilan', 'prive', 'beli_aset', 'retur_penjualan', 'diskon_penjualan', 'bayar_ongkir', 'transaksi_lainnya', 'barang_rusak'].includes(type) || type.includes('pengeluaran') || type.includes('beban') || type === 'expense') {
+        if (type === 'pembelian_barang' || type.includes('hpp')) hpp += amount;
+        else if (['bayar_beban', 'bayar_ongkir', 'transaksi_lainnya', 'barang_rusak'].includes(type) || type.includes('beban')) {
+          const bebanName = desc.toLowerCase().includes('beban') ? desc : `Beban ${desc}`;
+          const key = bebanName.charAt(0).toUpperCase() + bebanName.slice(1);
+          if (bebanMap[key]) bebanMap[key] += amount;
+          else bebanMap[key] = amount;
+        }
         
-        if (isBank) bank -= amount; else kas -= amount;
-      } else if (type.includes('piutang')) {
-        piutang += amount;
-      } else if (type.includes('utang')) {
-        utang += amount;
-        if (isBank) bank += amount; else kas += amount;
-      }
+        if (isUtangPayment && type === 'pembelian_barang') {
+          utang += amount;
+        } else {
+          if (isBank) bank -= amount; else kas -= amount;
+        }
+      } 
+      
+      if (type === 'terima_pembayaran') piutang -= amount;
+      else if (type.includes('piutang') && !type.includes('terima')) piutang += amount;
+      
+      if (type === 'bayar_utang' || type === 'bayar_cicilan') utang -= amount;
+      else if (type.includes('utang') && !type.includes('bayar') || type === 'terima_pinjaman') utang += amount;
     });
 
     const neracaSaldoData = [];
@@ -288,21 +323,30 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
       const type = t.type.toLowerCase();
       const amount = Number(t.amount);
       const isBank = t.payment_method?.toLowerCase().includes('bank') || t.payment_method?.toLowerCase().includes('transfer');
+      const isUtangPayment = t.payment_method?.toLowerCase() === 'utang';
       let debit = 0;
       let credit = 0;
       let relevant = false;
 
       if (kodeAkun === '1001' && !isBank) {
         if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income' || type === 'tambah_modal' || type === 'terima_pinjaman' || type === 'terima_pembayaran' || type === 'retur_pembelian') {
-          debit = amount; relevant = true;
+          if (!(type.includes('penjualan') && isUtangPayment)) {
+            debit = amount; relevant = true;
+          }
         } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense' || type === 'beli_aset' || type === 'bayar_utang' || type === 'bayar_cicilan' || type === 'prive' || type === 'retur_penjualan' || type === 'diskon_penjualan' || type === 'bayar_ongkir' || type === 'transaksi_lainnya') {
-          credit = amount; relevant = true;
+          if (!(type === 'pembelian_barang' && isUtangPayment)) {
+            credit = amount; relevant = true;
+          }
         }
       } else if (kodeAkun === '1002' && isBank) {
         if (type.includes('pemasukan') || type.includes('penjualan') || type.includes('utang') || type === 'income' || type === 'tambah_modal' || type === 'terima_pinjaman' || type === 'terima_pembayaran' || type === 'retur_pembelian') {
-          debit = amount; relevant = true;
+          if (!(type.includes('penjualan') && isUtangPayment)) {
+            debit = amount; relevant = true;
+          }
         } else if (type.includes('pengeluaran') || type.includes('hpp') || type.includes('beban') || type.includes('pembelian') || type === 'expense' || type === 'beli_aset' || type === 'bayar_utang' || type === 'bayar_cicilan' || type === 'prive' || type === 'retur_penjualan' || type === 'diskon_penjualan' || type === 'bayar_ongkir' || type === 'transaksi_lainnya') {
-          credit = amount; relevant = true;
+          if (!(type === 'pembelian_barang' && isUtangPayment)) {
+            credit = amount; relevant = true;
+          }
         }
       } else if (kodeAkun === '4001' && (type.includes('pemasukan') || type.includes('penjualan') || type === 'income')) {
         credit = amount; relevant = true;
@@ -320,13 +364,13 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
           debit = amount; relevant = true;
         }
       } else if (kodeAkun === '2001') {
-        if (type.includes('utang') && !type.includes('bayar') || type === 'terima_pinjaman') {
+        if (type.includes('utang') && !type.includes('bayar') || type === 'terima_pinjaman' || (type === 'pembelian_barang' && isUtangPayment)) {
           credit = amount; relevant = true;
         } else if (type.includes('bayar utang') || type === 'bayar_utang' || type === 'bayar_cicilan') {
           debit = amount; relevant = true;
         }
       } else if (kodeAkun === '1101') {
-        if (type.includes('piutang') && !type.includes('terima') && type !== 'terima_pembayaran') {
+        if (type.includes('piutang') && !type.includes('terima') && type !== 'terima_pembayaran' || (type.includes('penjualan') && isUtangPayment)) {
           debit = amount; relevant = true;
         } else if (type.includes('terima piutang') || type.includes('bayar piutang') || type === 'terima_pembayaran') {
           credit = amount; relevant = true;
@@ -388,17 +432,26 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
       const type = t.type.toLowerCase();
       const amount = Number(t.amount);
       const isBank = t.payment_method?.toLowerCase().includes('bank') || t.payment_method?.toLowerCase().includes('transfer');
+      const isUtangPayment = t.payment_method?.toLowerCase() === 'utang';
       
       const kasAccount = isBank ? { code: '1002', name: 'Bank' } : { code: '1001', name: 'Kas' };
       const entries = [];
 
       // Logic Mapper Double-Entry
       if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
-        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
+        if (isUtangPayment) {
+          entries.push({ accountCode: '1101', accountName: 'Piutang Usaha', debit: amount, credit: 0 });
+        } else {
+          entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: amount, credit: 0 });
+        }
         entries.push({ accountCode: '4001', accountName: 'Penjualan', debit: 0, credit: amount });
       } else if (type.includes('hpp') || type.includes('pembelian stok') || type === 'pembelian_barang') {
         entries.push({ accountCode: '5001', accountName: 'Harga Pokok Penjualan', debit: amount, credit: 0 });
-        entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
+        if (isUtangPayment) {
+          entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: 0, credit: amount });
+        } else {
+          entries.push({ accountCode: kasAccount.code, accountName: kasAccount.name, debit: 0, credit: amount });
+        }
       } else if (type.includes('pengeluaran') || type.includes('beban') || type === 'expense' || type === 'bayar_beban') {
         let bebanCode = '6004';
         let bebanName = 'Beban Lain-lain';
