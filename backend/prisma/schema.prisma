@@ -17,9 +17,9 @@ model Transaction {
   description    String?  @db.Text
   metadata       String?  @db.LongText
   userId         Int
+  user           User     @relation(fields: [userId], references: [id])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  users          User     @relation(fields: [userId], references: [id])
 
   @@index([userId], map: "transactions_userId_fkey")
   @@map("transactions")
@@ -37,9 +37,9 @@ model Product {
   stock     Int      @default(0)
   imageUrl  String?  @db.LongText
   userId    Int
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  users     User     @relation(fields: [userId], references: [id])
 
   @@index([userId], map: "products_userId_fkey")
   @@map("products")

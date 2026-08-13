@@ -66,14 +66,48 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Dummy stats for now
+    // Fetch transactions and products to calculate real stats
+    const transactions = await prisma.transaction.findMany({
+      where: { userId }
+    });
+
+    const products = await prisma.product.findMany({
+      where: { userId }
+    });
+
+    let pendapatan = 0;
+    let beban = 0;
+    let piutang = 0;
+    let utang = 0;
+
+    transactions.forEach(t => {
+      const type = t.type.toLowerCase();
+      const amount = Number(t.amount);
+      
+      if (type.includes('pemasukan') || type.includes('penjualan') || type === 'income') {
+        pendapatan += amount;
+      } else if (type.includes('pengeluaran') || type.includes('pembelian') || type.includes('beban') || type === 'expense') {
+        beban += amount;
+      } else if (type.includes('piutang')) {
+        piutang += amount;
+      } else if (type.includes('utang')) {
+        utang += amount;
+      }
+    });
+
+    const labaBersih = pendapatan - beban;
+
+    const nilaiPersediaan = products.reduce((total, p) => {
+      return total + (p.stock * Number(p.priceBuy));
+    }, 0);
+
     const stats = {
-      pendapatan: 0,
-      beban: 0,
-      labaBersih: 0,
-      piutang: 0,
-      utang: 0,
-      nilaiPersediaan: 0
+      pendapatan,
+      beban,
+      labaBersih,
+      piutang,
+      utang,
+      nilaiPersediaan
     };
 
     res.status(200).json({ business, stats });

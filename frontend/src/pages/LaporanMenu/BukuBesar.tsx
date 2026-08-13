@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
@@ -23,42 +24,38 @@ const AKUN_LIST = [
 
 const BULAN_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini'];
 
-const bukuBesarData = [
-  {
-    id: 1,
-    date: '10 Agustus 2026',
-    ref: 'JV-9193911',
-    description: 'Modal awal usaha',
-    debit: 10000000,
-    credit: 0,
-    balance: 10000000
-  },
-  {
-    id: 2,
-    date: '10 Agustus 2026',
-    ref: 'JV-9216213',
-    description: 'Pembelian 100 unit Kopi Sachet',
-    debit: 0,
-    credit: 3000000,
-    balance: 7000000
-  },
-  {
-    id: 3,
-    date: '10 Agustus 2026',
-    ref: 'JV-9231995',
-    description: 'Penjualan 40 unit Kopi Sachet',
-    debit: 2000000,
-    credit: 0,
-    balance: 9000000
-  }
-];
-
 export default function BukuBesar() {
+  const navigate = useNavigate();
   const [selectedAkun, setSelectedAkun] = useState('1001');
   const [isAkunOpen, setIsAkunOpen] = useState(false);
   
   const [selectedBulan, setSelectedBulan] = useState('Bulan ini');
   const [isBulanOpen, setIsBulanOpen] = useState(false);
+
+  const [bukuBesarData, setBukuBesarData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBukuBesar = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get(`http://localhost:5001/api/laporan/bukubesar?kodeAkun=${selectedAkun}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setBukuBesarData(res.data);
+      } catch (error) {
+        console.error('Error fetching buku besar:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBukuBesar();
+  }, [selectedAkun, navigate]);
 
   const handleExportExcel = () => {
     exportToExcel(bukuBesarData, `Buku_Besar_${selectedAkun}.xlsx`);
@@ -204,7 +201,10 @@ export default function BukuBesar() {
       
       {/* Table Section */}
       <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-[0_4px_24px_rgb(0,0,0,0.02)] overflow-hidden transition-all hover:shadow-[0_4px_24px_rgb(0,0,0,0.06)]">
-        <div className="overflow-x-auto">
+        {loading ? (
+          <div className="p-10 text-center text-slate-500 font-semibold">Memuat riwayat akun...</div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-200/60 bg-white/40">
@@ -240,6 +240,7 @@ export default function BukuBesar() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
     </div>

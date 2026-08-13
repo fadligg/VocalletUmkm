@@ -1,24 +1,39 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
 
 const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu'];
 
-const neracaSaldoData = [
-  { kode: '1001', nama: 'Kas', debit: 8000000, credit: 0 },
-  { kode: '1201', nama: 'Persediaan', debit: 1800000, credit: 0 },
-  { kode: '3001', nama: 'Modal Pemilik', debit: 0, credit: 10000000 },
-  { kode: '3101', nama: 'Prive', debit: 200000, credit: 0 },
-  { kode: '4001', nama: 'Penjualan', debit: 0, credit: 2000000 },
-  { kode: '5001', nama: 'Harga Pokok Penjualan', debit: 1000000, credit: 0 },
-  { kode: '6001', nama: 'Beban Gaji', debit: 1000000, credit: 0 },
-];
-
 export default function NeracaSaldo() {
+  const navigate = useNavigate();
   const [selectedPeriode, setSelectedPeriode] = useState('Tahun ini');
   const [isPeriodeOpen, setIsPeriodeOpen] = useState(false);
+  const [neracaSaldoData, setNeracaSaldoData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNeracaSaldo = async () => {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) {
+        navigate('/login-umkm');
+        return;
+      }
+      try {
+        const res = await axios.get('http://localhost:5001/api/laporan/neracasaldo', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setNeracaSaldoData(res.data);
+      } catch (error) {
+        console.error('Error fetching neraca saldo:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNeracaSaldo();
+  }, [navigate]);
 
   const handleExportExcel = () => {
     exportToExcel(neracaSaldoData, `Neraca_Saldo_${selectedPeriode}.xlsx`);
@@ -31,6 +46,10 @@ export default function NeracaSaldo() {
   const totalDebit = neracaSaldoData.reduce((acc, curr) => acc + curr.debit, 0);
   const totalCredit = neracaSaldoData.reduce((acc, curr) => acc + curr.credit, 0);
   const isSeimbang = totalDebit === totalCredit;
+
+  if (loading) {
+    return <div className="p-10 text-center text-slate-500 font-semibold mt-20">Memuat Neraca Saldo...</div>;
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto font-sans relative pb-24 animate-in fade-in slide-in-from-right-4 duration-300">
