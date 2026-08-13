@@ -32,6 +32,18 @@ export const getProductById = async (req: Request, res: Response) => {
 export const createProduct = async (req: Request, res: Response) => {
   try {
     const { name, brand, sku, unit, minStock, priceBuy, priceSell, stock, imageUrl } = req.body;
+    
+    let user = await prisma.user.findFirst();
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: "Default User",
+          email: "default_" + Date.now() + "@example.com",
+          password: "password123"
+        }
+      });
+    }
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -43,7 +55,7 @@ export const createProduct = async (req: Request, res: Response) => {
         priceSell,
         stock: Number(stock) || 0,
         imageUrl,
-        userId: 1
+        userId: user.id
       },
     });
     res.status(201).json(product);
@@ -57,6 +69,17 @@ export const updateProduct = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, brand, sku, unit, minStock, priceBuy, priceSell, stock, imageUrl } = req.body;
     
+    let user = await prisma.user.findFirst();
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: "Default User",
+          email: "default_" + Date.now() + "@example.com",
+          password: "password123"
+        }
+      });
+    }
+
     const product = await prisma.product.update({
       where: { id: Number(id) },
       data: {
@@ -69,7 +92,7 @@ export const updateProduct = async (req: Request, res: Response) => {
         priceSell,
         stock: stock !== undefined ? Number(stock) : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        userId: 1
+        userId: user.id
       },
     });
     res.json(product);
