@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getTransactions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -11,7 +9,7 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
-    const { q } = req.query;
+    const { q, page, limit } = req.query;
     
     let whereClause: any = { userId };
     
@@ -26,11 +24,34 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
       };
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
-      orderBy: { date: 'desc' },
-    });
-    res.json(transactions);
+    if (page && limit) {
+      const pageNum = parseInt(page as string) || 1;
+      const limitNum = parseInt(limit as string) || 20;
+      const skip = (pageNum - 1) * limitNum;
+
+      const [transactions, total] = await Promise.all([
+        prisma.transaction.findMany({
+          where: whereClause,
+          orderBy: { date: 'desc' },
+          skip,
+          take: limitNum,
+        }),
+        prisma.transaction.count({ where: whereClause })
+      ]);
+
+      res.json({
+        data: transactions,
+        total,
+        page: pageNum,
+        totalPages: Math.ceil(total / limitNum)
+      });
+    } else {
+      const transactions = await prisma.transaction.findMany({
+        where: whereClause,
+        orderBy: { date: 'desc' },
+      });
+      res.json(transactions);
+    }
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch transactions', error });
   }
