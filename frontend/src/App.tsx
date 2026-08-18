@@ -2,8 +2,14 @@ import React from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes';
 
+import OfflineFallback from './components/OfflineFallback';
+
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <OfflineFallback>
+      <RouterProvider router={router} />
+    </OfflineFallback>
+  );
 }
 
 export default App;
