@@ -6,6 +6,7 @@ import productRoutes from './routes/product.routes';
 import authRoutes from './routes/auth.routes';
 import businessRoutes from './routes/business.routes';
 import laporanRoutes from './routes/laporanMenu.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 import { apiLogger } from './middleware/logger.middleware';
 
 dotenv.config();
@@ -23,6 +24,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/laporan', laporanRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/', (req, res) => {
   res.send('Vocallet UMKM Backend is running!');

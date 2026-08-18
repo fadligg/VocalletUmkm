@@ -34,6 +34,11 @@ export default function Transaksi() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
 
   // Penjualan State
   const [formPenjualan, setFormPenjualan] = useState({
@@ -91,19 +96,36 @@ export default function Transaksi() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchTransactions(searchQuery);
+      setCurrentPage(1); // Reset to page 1 on search
+      fetchTransactions(searchQuery, 1);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchTransactions = async (query = searchQuery) => {
+  useEffect(() => {
+    if (!searchQuery) {
+      fetchTransactions('', currentPage);
+    } else {
+      fetchTransactions(searchQuery, currentPage);
+    }
+  }, [currentPage]);
+
+  const fetchTransactions = async (query = searchQuery, page = currentPage) => {
     try {
-      const endpoint = query ? `/transactions?q=${encodeURIComponent(query)}` : '/transactions';
+      const baseEndpoint = query ? `/transactions?q=${encodeURIComponent(query)}` : '/transactions';
+      const separator = baseEndpoint.includes('?') ? '&' : '?';
+      const endpoint = `${baseEndpoint}${separator}page=${page}&limit=${limit}`;
       const res = await api.get(endpoint);
-      if (Array.isArray(res.data)) {
+      if (res.data && Array.isArray(res.data.data)) {
+        setTransactions(res.data.data);
+        setTotalPages(res.data.totalPages || 1);
+        setCurrentPage(res.data.page || 1);
+      } else if (Array.isArray(res.data)) {
+        // Fallback for old API behavior
         setTransactions(res.data);
+        setTotalPages(1);
       } else {
-        console.error('API returned non-array:', res.data);
+        console.error('API returned unexpected format:', res.data);
         setTransactions([]);
       }
     } catch (err) {
@@ -1282,14 +1304,14 @@ export default function Transaksi() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Akun Debit</label>
-                <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
-                  <option>1001 - Kas</option>
+                <select disabled className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none text-slate-700 cursor-not-allowed">
+                  <option>Beban Lain-lain</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Akun Kredit</label>
-                <select className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 cursor-pointer">
-                  <option>4001 - Penjualan</option>
+                <select disabled className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none text-slate-700 cursor-not-allowed">
+                  <option>Kas / Bank</option>
                 </select>
               </div>
             </div>
@@ -1558,6 +1580,29 @@ export default function Transaksi() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors cursor-pointer"
+          >
+            <Icon icon="mdi:chevron-left" className="w-6 h-6" />
+          </button>
+          <span className="text-sm font-medium text-slate-600">
+            Halaman {currentPage} dari {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors cursor-pointer"
+          >
+            <Icon icon="mdi:chevron-right" className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       {/* Modal Tambah Transaksi */}
       {isModalOpen && (
