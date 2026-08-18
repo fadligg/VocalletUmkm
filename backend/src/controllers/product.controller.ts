@@ -33,7 +33,8 @@ export const getProductById = async (req: AuthRequest, res: Response): Promise<v
       where: { id: Number(id), userId },
     });
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: 'Product not found' });
+      return;
     }
     res.json(product);
   } catch (error) {
@@ -61,7 +62,6 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
         priceSell,
         stock: Number(stock) || 0,
         imageUrl,
-        userId: 1
       },
     });
     res.status(201).json(product);
@@ -98,7 +98,6 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
         priceSell,
         stock: stock !== undefined ? Number(stock) : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        userId: 1
       },
     });
     res.json(product);

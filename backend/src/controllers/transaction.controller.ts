@@ -11,8 +11,23 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
+    const { q } = req.query;
+    
+    let whereClause: any = { userId };
+    
+    if (q && typeof q === 'string' && q.trim() !== '') {
+      whereClause = {
+        userId,
+        OR: [
+          { description: { contains: q } },
+          { trx_id: { contains: q } },
+          { type: { contains: q } },
+        ]
+      };
+    }
+
     const transactions = await prisma.transaction.findMany({
-      where: { userId },
+      where: whereClause,
       orderBy: { date: 'desc' },
     });
     res.json(transactions);
@@ -33,7 +48,8 @@ export const getTransactionById = async (req: AuthRequest, res: Response): Promi
       where: { id: Number(id), userId },
     });
     if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+      res.status(404).json({ message: 'Transaction not found' });
+      return;
     }
     res.json(transaction);
   } catch (error) {
@@ -59,7 +75,6 @@ export const createTransaction = async (req: AuthRequest, res: Response): Promis
         payment_method,
         description,
         metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : '{}',
-        userId: 1,
       },
     });
     res.status(201).json(transaction);
@@ -106,7 +121,6 @@ export const updateTransaction = async (req: Request, res: Response) => {
         payment_method,
         description,
         metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : '{}',
-        userId: 1,
       },
     });
     res.json(transaction);

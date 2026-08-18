@@ -60,7 +60,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const business = await prisma.business.findFirst({ where: { userId: user.id } });
+    let business = await prisma.business.findFirst({ where: { userId: user.id } });
+
+    // Auto-create default business if user has old data but no business setup
+    if (!business) {
+      const hasOldData = await prisma.transaction.findFirst({ where: { userId: user.id } }) ||
+                         await prisma.product.findFirst({ where: { userId: user.id } });
+                         
+      if (hasOldData) {
+        business = await prisma.business.create({
+          data: {
+            userId: user.id,
+            namaUsaha: user.name || 'Usaha Saya',
+            jenisUsaha: 'Lainnya',
+            tahunMulai: new Date(new Date().getFullYear(), 0, 1),
+            tahunAkhir: new Date(new Date().getFullYear(), 11, 31),
+          }
+        });
+      }
+    }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
       expiresIn: '7d',
@@ -133,7 +151,25 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       expiresIn: '7d',
     });
 
-    const business = await prisma.business.findFirst({ where: { userId: user.id } });
+    let business = await prisma.business.findFirst({ where: { userId: user.id } });
+
+    // Auto-create default business if user has old data but no business setup
+    if (!business) {
+      const hasOldData = await prisma.transaction.findFirst({ where: { userId: user.id } }) ||
+                         await prisma.product.findFirst({ where: { userId: user.id } });
+                         
+      if (hasOldData) {
+        business = await prisma.business.create({
+          data: {
+            userId: user.id,
+            namaUsaha: user.name || 'Usaha Saya',
+            jenisUsaha: 'Lainnya',
+            tahunMulai: new Date(new Date().getFullYear(), 0, 1),
+            tahunAkhir: new Date(new Date().getFullYear(), 11, 31),
+          }
+        });
+      }
+    }
 
     res.status(200).json({
       message: 'Google login successful',

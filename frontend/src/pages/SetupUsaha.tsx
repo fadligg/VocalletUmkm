@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
 const SetupUsaha: React.FC = () => {
   const navigate = useNavigate();
@@ -72,11 +72,7 @@ const SetupUsaha: React.FC = () => {
         saldoBank
       };
 
-      await axios.post('http://localhost:5001/api/business/setup', payload, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      await api.post('/business/setup', payload);
 
       // Navigate to home after successful setup
       navigate('/home');
@@ -152,9 +148,11 @@ const SetupUsaha: React.FC = () => {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Nomor Telepon (opsional)</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                maxLength={15}
                 value={noTelp}
-                onChange={(e) => setNoTelp(e.target.value)}
+                onChange={(e) => setNoTelp(e.target.value.replace(/\D/g, ''))}
                 className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
               />
             </div>

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-
-import { useEffect } from 'react';
+import api from '../services/api';
 
 const MODAL_TYPES = [
   { id: 'penjualan', label: 'Penjualan', icon: 'twemoji:shopping-cart' },
@@ -32,6 +31,9 @@ export default function Transaksi() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Penjualan State
   const [formPenjualan, setFormPenjualan] = useState({
@@ -84,18 +86,24 @@ export default function Transaksi() {
   const parseNum = (val: string) => parseInt(val.replace(/\D/g, '')) || 0;
 
   useEffect(() => {
-    fetchTransactions();
     fetchProducts();
   }, []);
 
-  const fetchTransactions = async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTransactions(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchTransactions = async (query = searchQuery) => {
     try {
-      const res = await fetch('http://localhost:5001/api/transactions');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTransactions(data);
+      const endpoint = query ? `/transactions?q=${encodeURIComponent(query)}` : '/transactions';
+      const res = await api.get(endpoint);
+      if (Array.isArray(res.data)) {
+        setTransactions(res.data);
       } else {
-        console.error('API returned non-array:', data);
+        console.error('API returned non-array:', res.data);
         setTransactions([]);
       }
     } catch (err) {
@@ -106,10 +114,9 @@ export default function Transaksi() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5001/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setProducts(data);
+      const res = await api.get('/products');
+      if (Array.isArray(res.data)) {
+        setProducts(res.data);
       }
     } catch (err) {
       console.error('Failed to fetch products', err);
@@ -126,6 +133,8 @@ export default function Transaksi() {
   };
 
   const handleSimpanPenjualan = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const subtotal = parseNum(formPenjualan.jumlah) * parseNum(formPenjualan.hargaJual);
       const diskon = parseNum(formPenjualan.diskon);
@@ -151,29 +160,25 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        console.error('Failed to save transaction');
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSimpanPembelian = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const amount = parseNum(formPembelian.jumlah) * parseNum(formPembelian.hargaBeli);
 
@@ -192,30 +197,25 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSimpanGeneric = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const amount = parseNum(genericForm.nominal);
       let description = genericForm.keterangan || activeForm?.replace(/_/g, ' ') || 'Transaksi';
@@ -232,30 +232,25 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSimpanBayarBeban = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const amount = parseNum(formBayarBeban.nominal);
 
@@ -271,26 +266,19 @@ export default function Transaksi() {
         }
       };
 
-      const url = editingId
-        ? `http://localhost:5001/api/transactions/${editingId}`
-        : 'http://localhost:5001/api/transactions';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        fetchTransactions();
-        closeModal();
+      const url = editingId ? `/transactions/${editingId}` : '/transactions';
+      if (editingId) {
+        await api.put(url, payload);
       } else {
-        const errorText = await res.text();
-        console.error('Failed to save transaction:', errorText);
+        await api.post(url, payload);
       }
+      
+      fetchTransactions();
+      closeModal();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -485,11 +473,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanPenjualan}
+              disabled={isSubmitting} onClick={handleSimpanPenjualan}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -586,11 +572,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanBayarBeban}
+              disabled={isSubmitting} onClick={handleSimpanBayarBeban}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -654,11 +638,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -722,11 +704,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -785,11 +765,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -848,11 +826,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -923,11 +899,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -986,11 +960,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanGeneric}
+              disabled={isSubmitting} onClick={handleSimpanGeneric}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1041,7 +1013,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1096,7 +1068,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1151,7 +1123,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1192,7 +1164,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1240,7 +1212,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1281,7 +1253,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1336,7 +1308,7 @@ export default function Transaksi() {
           </div>
           <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
             <button onClick={() => setActiveForm(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors cursor-pointer">Kembali</button>
-            <button onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">Simpan</button>
+            <button disabled={isSubmitting} onClick={handleSimpanGeneric} className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1438,11 +1410,9 @@ export default function Transaksi() {
               Kembali
             </button>
             <button
-              onClick={handleSimpanPembelian}
+              disabled={isSubmitting} onClick={handleSimpanPembelian}
               className="flex-1 py-2.5 rounded-lg bg-[#0b7b3f] text-white font-medium hover:bg-[#096634] transition-colors cursor-pointer"
-            >
-              Simpan
-            </button>
+            >{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
         </>
       );
@@ -1531,6 +1501,8 @@ export default function Transaksi() {
         <input
           type="text"
           placeholder="Cari transaksi..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] focus:border-transparent text-slate-700 placeholder-slate-400"
         />
       </div>
@@ -1685,23 +1657,31 @@ export default function Transaksi() {
 
             <div className="p-4 sm:p-5 border-t border-slate-100 flex gap-3 shrink-0">
               <button
+                disabled={isDeleting}
                 onClick={async () => {
+                  if (isDeleting) return;
                   if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                    setIsDeleting(true);
                     try {
-                      const res = await fetch(`http://localhost:5001/api/transactions/${selectedTransaction.id}`, { method: 'DELETE' });
-                      if (res.ok) {
-                        fetchTransactions();
-                        setIsDetailModalOpen(false);
-                        setSelectedTransaction(null);
-                      }
+                      await api.delete(`/transactions/${selectedTransaction.id}`);
+                      fetchTransactions();
+                      setIsDetailModalOpen(false);
+                      setSelectedTransaction(null);
                     } catch (err) {
                       console.error('Failed to delete transaction', err);
+                    } finally {
+                      setIsDeleting(false);
                     }
                   }
                 }}
-                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-bold hover:bg-red-50 transition-colors cursor-pointer flex justify-center items-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-bold hover:bg-red-50 disabled:opacity-50 transition-colors cursor-pointer flex justify-center items-center gap-1.5"
               >
-                <Icon icon="mdi:trash-can-outline" className="w-5 h-5" /> Hapus
+                {isDeleting ? (
+                  <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                )}
+                {isDeleting ? 'Menghapus...' : 'Hapus'}
               </button>
               <button
                 onClick={() => {

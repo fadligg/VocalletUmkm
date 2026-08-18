@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Icon } from '@iconify/react';
 import {
   Chart as ChartJS,
@@ -36,6 +36,8 @@ export default function Home() {
     utang: 0,
     nilaiPersediaan: 0
   });
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [chartFilter, setChartFilter] = useState('bulan_ini');
 
   useEffect(() => {
     const fetchBusinessData = async () => {
@@ -45,16 +47,18 @@ export default function Home() {
         return;
       }
       try {
-        const res = await axios.get('http://localhost:5001/api/business', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const { business, stats: fetchedStats } = res.data;
+        const [businessRes, txRes] = await Promise.all([
+          api.get('/business'),
+          api.get('/transactions')
+        ]);
+        const { business, stats: fetchedStats } = businessRes.data;
         setBusinessName(business.namaUsaha || 'Usaha Saya');
         setStats({
           ...fetchedStats,
-          saldoKas: parseFloat(business.saldoKas),
-          saldoBank: parseFloat(business.saldoBank)
+          saldoKas: fetchedStats.saldoKas !== undefined ? fetchedStats.saldoKas : parseFloat(business.saldoKas),
+          saldoBank: fetchedStats.saldoBank !== undefined ? fetchedStats.saldoBank : parseFloat(business.saldoBank)
         });
+        setTransactions(txRes.data);
       } catch (err) {
         console.error('Failed to fetch business data:', err);
       }
@@ -117,18 +121,81 @@ export default function Home() {
     },
   ];
 
-  const chartData = {
-    labels: ['04/08/2026', '06/08/2026', '08/08/2026', '10/08/2026'],
-    datasets: [
-      {
-        label: 'Penjualan',
-        data: [0, 0, 0, 800000],
-        backgroundColor: '#0b7b3f',
-        borderRadius: 4,
-        barPercentage: 0.5,
-      },
-    ],
-  };
+  const chartData = React.useMemo(() => {
+    let filteredTx = transactions;
+    const now = new Date();
+
+    if (chartFilter === '7_hari') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      filteredTx = transactions.filter(tx => {
+        if (!tx.date) return false;
+        const d = new Date(tx.date);
+        return d >= sevenDaysAgo && d <= now;
+      });
+    } else if (chartFilter === '30_hari') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      filteredTx = transactions.filter(tx => {
+        if (!tx.date) return false;
+        const d = new Date(tx.date);
+        return d >= thirtyDaysAgo && d <= now;
+      });
+    } else {
+      // bulan_ini (uses periode state)
+      filteredTx = transactions.filter(tx => {
+        if (!tx.date) return false;
+        const txDate = new Date(tx.date);
+        const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        return txMonth === periode;
+      });
+    }
+
+    const dailyData: Record<string, number> = {};
+    
+    filteredTx.forEach(tx => {
+      const type = tx.type;
+      let chartAmount = 0;
+      
+      if (type === 'penjualan') {
+        chartAmount = Number(tx.amount);
+      } else if (type === 'diskon_penjualan' || type === 'retur_penjualan') {
+        chartAmount = -Number(tx.amount);
+      }
+      
+      if (chartAmount !== 0) {
+        const dateObj = new Date(tx.date);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const year = dateObj.getFullYear();
+        const dateStr = `${day}/${month}/${year}`;
+        
+        if (!dailyData[dateStr]) dailyData[dateStr] = 0;
+        dailyData[dateStr] += chartAmount;
+      }
+    });
+
+    const labels = Object.keys(dailyData).sort((a, b) => {
+      const [d1, m1, y1] = a.split('/');
+      const [d2, m2, y2] = b.split('/');
+      return new Date(`${y1}-${m1}-${d1}`).getTime() - new Date(`${y2}-${m2}-${d2}`).getTime();
+    });
+    
+    const data = labels.map(label => dailyData[label]);
+
+    return {
+      labels: labels.length > 0 ? labels : ['Belum ada data'],
+      datasets: [
+        {
+          label: 'Penjualan',
+          data: data.length > 0 ? data : [0],
+          backgroundColor: '#0b7b3f',
+          borderRadius: 4,
+          barPercentage: 0.5,
+        },
+      ],
+    };
+  }, [transactions, periode, chartFilter]);
 
   const chartOptions = {
     responsive: true,
@@ -224,7 +291,15 @@ export default function Home() {
       <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800">Grafik Penjualan</h2>
-          <span className="text-xs font-medium text-slate-400">7 hari terakhir</span>
+          <select 
+            value={chartFilter}
+            onChange={(e) => setChartFilter(e.target.value)}
+            className="text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0b7b3f]"
+          >
+            <option value="7_hari">7 Hari Terakhir</option>
+            <option value="30_hari">30 Hari Terakhir</option>
+            <option value="bulan_ini">Sesuai Periode</option>
+          </select>
         </div>
         <div className="h-48 w-full">
           <Bar data={chartData} options={chartOptions} />
