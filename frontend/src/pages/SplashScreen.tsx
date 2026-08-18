@@ -19,7 +19,7 @@ const SplashScreen = () => {
           navigate('/home');
         }
       } else {
-        navigate('/login-umkm');
+        navigate('/pilihan-peran');
       }
     }, 3000); // 3 seconds timeout
 
@@ -38,7 +38,7 @@ const SplashScreen = () => {
         navigate('/home');
       }
     } else {
-      navigate('/login-umkm');
+      navigate('/pilihan-peran');
     }
   };
 

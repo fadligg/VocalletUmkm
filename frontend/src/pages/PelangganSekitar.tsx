@@ -148,14 +148,21 @@ const PelangganSekitar: React.FC = () => {
             role: 'umkm',
             metadata: {
               nama_usaha: currentMeta.namaUsaha,
-              logo_usaha: currentMeta.logoUsaha
+              logo_usaha: currentMeta.logoUsaha,
+              type: localStorage.getItem('vocallet_tipe_usaha') || 'UMKM'
             }
           })
         })
         .then(res => res.json())
         .then((data: any[]) => {
           if (Array.isArray(data)) {
-            const parsedBuyers = data.map(b => {
+            const parsedBuyers = data
+              .filter((b: any) => {
+                if (b.role) return b.role === 'individual' || b.role === 'pembeli';
+                if (b.metadata) return !b.metadata.includes('nama_usaha');
+                return true;
+              })
+              .map(b => {
               let name = "Pembeli anonim";
               if (b.metadata) {
                 try {

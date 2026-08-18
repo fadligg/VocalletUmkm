@@ -8,9 +8,15 @@ import Stok from '../pages/Stok';
 import Laporan from '../pages/Laporan';
 import Profil from '../pages/Profil';
 import LoginUmkm from '../pages/LoginUmkm';
+import LoginPembeli from '../pages/LoginPembeli';
 import RegisterUmkm from '../pages/RegisterUmkm';
+import PilihanPeran from '../pages/PilihanPeran';
+import RegisterPembeli from '../pages/RegisterPembeli';
 import SetupUsaha from '../pages/SetupUsaha';
 import PelangganSekitar from '../pages/PelangganSekitar';
+import PedagangSekitar from '../pages/PedagangSekitar';
+import ProfilPembeli from '../pages/ProfilPembeli';
+import BuyerLayout from '../layouts/BuyerLayout';
 import PilihanZakat from '../pages/Zakat/PilihanZakat';
 import ZakatFitrah from '../pages/Zakat/ZakatFitrah';
 import ZakatPerdagangan from '../pages/Zakat/ZakatPerdagangan';
@@ -29,6 +35,14 @@ export const router = createBrowserRouter([
     element: <SplashScreen />,
   },
   {
+    path: '/pilihan-peran',
+    element: <PilihanPeran />,
+  },
+  {
+    path: '/login-pembeli',
+    element: <LoginPembeli />,
+  },
+  {
     path: '/login-umkm',
     element: <LoginUmkm />,
   },
@@ -37,8 +51,25 @@ export const router = createBrowserRouter([
     element: <RegisterUmkm />,
   },
   {
+    path: '/register-pembeli',
+    element: <RegisterPembeli />,
+  },
+  {
     path: '/setup-usaha',
     element: <SetupUsaha />,
+  },
+  {
+    element: <BuyerLayout />,
+    children: [
+      {
+        path: '/pedagang-sekitar',
+        element: <PedagangSekitar />,
+      },
+      {
+        path: '/profil-pembeli',
+        element: <ProfilPembeli />,
+      },
+    ],
   },
   {
     element: <MainLayout />,
