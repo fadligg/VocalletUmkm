@@ -39,7 +39,7 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
     let kendaraan = 0;
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -134,7 +134,7 @@ export const getLabaRugi = async (req: AuthRequest, res: Response): Promise<void
     const bebanMap: Record<string, number> = {};
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const desc = t.description || 'Lainnya';
 
@@ -191,15 +191,15 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
     const saldoKasAwal = business ? Number(business.saldoKas) : 0;
     const saldoBankAwal = business ? Number(business.saldoBank) : 0;
     
-    // Initial Modal is assumed to fund initial Kas and Bank
-    const modalAwal = saldoKasAwal + saldoBankAwal;
-
     const transactions = await prisma.transaction.findMany({ where: { userId } });
     const products = await prisma.product.findMany({ where: { userId } });
 
     let kas = saldoKasAwal;
     let bank = saldoBankAwal;
     let persediaan = products.reduce((sum, p) => sum + (p.stock * Number(p.priceBuy)), 0);
+    
+    // Initial Modal is assumed to fund initial Kas, Bank, and Inventory
+    const modalAwal = saldoKasAwal + saldoBankAwal + persediaan;
     
     let piutang = 0;
     let utang = 0;
@@ -214,7 +214,7 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
     const bebanMap: Record<string, number> = {};
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -276,6 +276,13 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
         case 'prive':
           prive += amount;
           addCash(-amount);
+          break;
+        default:
+          // Unrecognized transactions map to Beban Lainnya so they don't silently disappear
+          const unkKey = `Beban Tidak Dikenal (${type})`;
+          if (bebanMap[unkKey]) bebanMap[unkKey] += amount;
+          else bebanMap[unkKey] = amount;
+          if (isUtang) utang += amount; else addCash(-amount);
           break;
       }
     });
@@ -361,7 +368,7 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -431,6 +438,11 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
           else entries.push({ accountCode: '2001', debit: amount, credit: 0 });
           entries.push({ accountCode: '5002', debit: 0, credit: amount });
           break;
+        default:
+          entries.push({ accountCode: '6004', debit: amount, credit: 0 });
+          if (isUtang) entries.push({ accountCode: '2001', debit: 0, credit: amount });
+          else entries.push({ accountCode: kasAccountCode, debit: 0, credit: amount });
+          break;
       }
 
       const relevantEntries = entries.filter(e => e.accountCode === kodeAkun);
@@ -484,7 +496,7 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
     const formatDate = (date: Date) => date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -556,6 +568,11 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
           if (!isUtang) entries.push({ accountCode: kasAccountCode, accountName: kasAccountName, debit: amount, credit: 0 });
           else entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: amount, credit: 0 });
           entries.push({ accountCode: '5002', accountName: 'Retur Pembelian', debit: 0, credit: amount });
+          break;
+        default:
+          entries.push({ accountCode: '6004', accountName: `Beban Tidak Dikenal (${type})`, debit: amount, credit: 0 });
+          if (isUtang) entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: 0, credit: amount });
+          else entries.push({ accountCode: kasAccountCode, accountName: kasAccountName, debit: 0, credit: amount });
           break;
       }
 
