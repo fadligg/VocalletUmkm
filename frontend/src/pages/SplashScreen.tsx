@@ -65,7 +65,7 @@ const SplashScreen = () => {
         <div className="flex flex-col items-center">
           <h1 className="font-bold text-4xl md:text-5xl text-brand-primary mb-1">Vocallet</h1>
           <p className="font-light text-lg md:text-xl text-brand-secondary leading-tight">
-            Asisten Finansial dan Zakat<br />Berbasis Suara
+            Asisten Finansial dan Zakat untuk UMKM<br/>
           </p>
         </div>
 
@@ -78,7 +78,6 @@ const SplashScreen = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
             </svg>
           </span>
-          Voice Ready
         </div>
       </main>
 
