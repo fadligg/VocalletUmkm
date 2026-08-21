@@ -89,6 +89,7 @@ export default function Profil() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage('Pengaturan berhasil disimpan!');
+      window.dispatchEvent(new Event('profileUpdated'));
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
       console.error(err);

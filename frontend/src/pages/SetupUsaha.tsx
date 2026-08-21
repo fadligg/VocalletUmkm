@@ -8,7 +8,7 @@ const SetupUsaha: React.FC = () => {
 
   // Form State Step 1
   const [namaUsaha, setNamaUsaha] = useState('');
-  const [jenisUsaha, setJenisUsaha] = useState('Dagang');
+
   const [noTelp, setNoTelp] = useState('');
   const [alamat, setAlamat] = useState('');
   const [tahunMulai, setTahunMulai] = useState('2026-01-01');
@@ -63,7 +63,7 @@ const SetupUsaha: React.FC = () => {
       
       const payload = {
         namaUsaha,
-        jenisUsaha,
+        jenisUsaha: 'Dagang',
         noTelp,
         alamat,
         tahunMulai,
@@ -121,27 +121,6 @@ const SetupUsaha: React.FC = () => {
                 className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#006B2C] focus:ring-1 focus:ring-[#006B2C]"
                 required
               />
-            </div>
-
-            {/* Jenis Usaha */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Jenis Usaha</label>
-              <div className="flex gap-2">
-                {['Dagang', 'Jasa', 'Dagang+Jasa'].map((jenis) => (
-                  <button
-                    key={jenis}
-                    type="button"
-                    onClick={() => setJenisUsaha(jenis)}
-                    className={`flex-1 py-2 text-sm rounded-lg border ${
-                      jenisUsaha === jenis
-                        ? 'border-[#006B2C] text-[#006B2C] font-semibold bg-green-50'
-                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                    } transition-colors`}
-                  >
-                    {jenis}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Nomor Telepon */}

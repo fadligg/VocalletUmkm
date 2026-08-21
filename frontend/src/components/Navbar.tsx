@@ -32,6 +32,11 @@ export default function Navbar() {
       }
     };
     fetchBusiness();
+
+    window.addEventListener('profileUpdated', fetchBusiness);
+    return () => {
+      window.removeEventListener('profileUpdated', fetchBusiness);
+    };
   }, []);
 
   return (
