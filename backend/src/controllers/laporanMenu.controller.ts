@@ -107,6 +107,7 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
     const modalPemilik = totalAktiva - kewajiban; // Auto-balancing
 
     res.json({
+      namaUsaha: business?.namaUsaha || 'Nama Usaha',
       aktivaLancar: { kas, bank, piutangUsaha: piutang, persediaan },
       aktivaTetap: { peralatanUsaha: peralatan, kendaraan },
       kewajiban: { utangUsaha, utangBank },

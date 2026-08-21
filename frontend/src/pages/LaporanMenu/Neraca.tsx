@@ -136,7 +136,7 @@ export default function Neraca() {
       {/* Document Card */}
       <div className="bg-white/60 backdrop-blur-lg transform-gpu border border-white/80 rounded-[2rem] shadow-xl shadow-slate-200/20 p-4 sm:p-8 overflow-hidden transition-all hover:shadow-2xl hover:shadow-slate-200/30 relative z-10">
         <div className="text-center mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">kaju 23</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">{dataNeraca?.namaUsaha || 'Nama Usaha'}</h2>
           <h3 className="text-lg font-semibold text-slate-700 mt-1">Neraca</h3>
           <p className="text-slate-500 text-sm mt-1">
             Per {new Date(selectedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
