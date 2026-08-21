@@ -19,6 +19,7 @@ export default function Profil() {
 
   const [loading, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -104,6 +105,26 @@ export default function Profil() {
     localStorage.removeItem('vocallet_user_mode');
     localStorage.removeItem('vocallet_user_email');
     navigate('/login-umkm');
+  };
+
+  const handleResetTransactions = async () => {
+    if (window.confirm("PERHATIAN: Apakah Anda yakin ingin mereset seluruh data transaksi? Semua mutasi keuangan dan saldo akan dikembalikan ke awal. Stok dari penjualan akan dikembalikan. Tindakan ini TIDAK dapat dibatalkan!")) {
+      const token = localStorage.getItem('vocallet_token');
+      if (!token) return;
+
+      try {
+        setIsResetting(true);
+        await axios.delete('http://localhost:5001/api/transactions/reset', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert('Seluruh data transaksi berhasil di-reset!');
+      } catch (err: any) {
+        console.error(err);
+        alert(err.response?.data?.message || 'Gagal mereset transaksi.');
+      } finally {
+        setIsResetting(false);
+      }
+    }
   };
 
   return (
@@ -255,6 +276,25 @@ export default function Profil() {
             {loading ? 'Menyimpan...' : 'Simpan Pengaturan'}
           </button>
         </form>
+      </div>
+
+      {/* Zona Berbahaya */}
+      <div className="bg-white rounded-xl shadow-sm border border-red-200 p-5 md:p-6 mb-6">
+        <h2 className="text-lg font-bold text-red-600 mb-2 flex items-center gap-2">
+          <Icon icon="mdi:alert-circle-outline" className="w-5 h-5" />
+          Zona Berbahaya
+        </h2>
+        <p className="text-sm text-slate-600 mb-4">
+          Menghapus seluruh data transaksi. Hal ini akan mengembalikan saldo seperti semula dan mengembalikan stok yang terjual. Data yang dihapus tidak bisa dikembalikan!
+        </p>
+        <button 
+          onClick={handleResetTransactions}
+          disabled={isResetting}
+          className="w-full sm:w-auto bg-red-100 text-red-700 font-bold py-2.5 px-4 rounded-lg transition-colors hover:bg-red-200 focus:outline-none disabled:opacity-70 flex items-center justify-center gap-2"
+        >
+          <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
+          {isResetting ? 'Mereset...' : 'Reset Seluruh Transaksi'}
+        </button>
       </div>
 
       {/* Logout Card */}

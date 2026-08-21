@@ -110,6 +110,43 @@ export default function Transaksi() {
     }
   }, [currentPage]);
 
+  const [piutangList, setPiutangList] = useState<{nama: string, sisaUtang: number}[]>([]);
+
+  const fetchPiutang = async () => {
+    try {
+      const res = await api.get('/transactions');
+      let utangMap: Record<string, number> = {};
+      const allTx = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      
+      allTx.forEach((tx: any) => {
+        const type = tx.type;
+        const meta = tx.metadata ? (typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata) : {};
+        if (type === 'Penjualan' && (tx.payment_method === 'Utang' || tx.payment_method === 'Kredit')) {
+           const nama = meta.pelanggan || '';
+           if (nama) {
+             utangMap[nama] = (utangMap[nama] || 0) + Number(tx.amount);
+           }
+        } else if (type === 'terima_pembayaran') {
+           const nama = meta.extraField || '';
+           if (nama) {
+             utangMap[nama] = (utangMap[nama] || 0) - Number(tx.amount);
+           }
+        }
+      });
+      
+      const list = Object.keys(utangMap).map(k => ({ nama: k, sisaUtang: utangMap[k] })).filter(item => item.sisaUtang > 0);
+      setPiutangList(list);
+    } catch (e) {
+      console.error('Failed to fetch piutang', e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeForm === 'terima_pembayaran') {
+      fetchPiutang();
+    }
+  }, [activeForm]);
+
   const fetchTransactions = async (query = searchQuery, page = currentPage) => {
     try {
       const baseEndpoint = query ? `/transactions?q=${encodeURIComponent(query)}` : '/transactions';
@@ -145,6 +182,31 @@ export default function Transaksi() {
     }
   };
 
+
+  const getJournalImpact = (type: string | null, method: string, nominalAmount: number = 0) => {
+    const isUtang = method === 'Utang' || method === 'Kredit';
+    const fmt = nominalAmount ? ` Rp ${nominalAmount.toLocaleString('id-ID')}` : '';
+    switch (type) {
+      case 'penjualan': return isUtang ? `Piutang (+)${fmt}, Pendapatan (+)${fmt}` : `Kas/Bank (+)${fmt}, Pendapatan (+)${fmt}`;
+      case 'pembelian_barang': return isUtang ? `Persediaan (+)${fmt}, Utang (+)${fmt}` : `Persediaan (+)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'bayar_beban':
+      case 'bayar_ongkir': return isUtang ? `Beban (+)${fmt}, Utang (+)${fmt}` : `Beban (+)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'terima_pembayaran': return `Kas/Bank (+)${fmt}, Piutang (-)${fmt}`;
+      case 'bayar_utang':
+      case 'bayar_cicilan': return `Utang (-)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'tambah_modal': return `Kas/Bank (+)${fmt}, Ekuitas/Modal (+)${fmt}`;
+      case 'prive': return `Ekuitas/Modal (-)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'beli_aset': return isUtang ? `Aset (+)${fmt}, Utang (+)${fmt}` : `Aset (+)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'terima_pinjaman': return `Kas/Bank (+)${fmt}, Utang (+)${fmt}`;
+      case 'retur_penjualan':
+      case 'diskon_penjualan': return isUtang ? `Pendapatan (-)${fmt}, Piutang (-)${fmt}` : `Pendapatan (-)${fmt}, Kas/Bank (-)${fmt}`;
+      case 'retur_pembelian': return isUtang ? `Utang (-)${fmt}, Persediaan (-)${fmt}` : `Kas/Bank (+)${fmt}, Persediaan (-)${fmt}`;
+      case 'barang_rusak': return `Beban Kerugian (+)${fmt}, Persediaan (-)${fmt}`;
+      case 'transaksi_lainnya': return isUtang ? `Akun Pilihan (+)${fmt}, Utang (+)${fmt}` : `Akun Pilihan (+)${fmt}, Kas/Bank (-)${fmt}`;
+      default: return '';
+    }
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     // Reset form after a slight delay to allow animation to finish smoothly
@@ -156,6 +218,12 @@ export default function Transaksi() {
 
   const handleSimpanPenjualan = async () => {
     if (isSubmitting) return;
+
+    if ((formPenjualan.metodePembayaran === 'Utang' || formPenjualan.metodePembayaran === 'Kredit') && !formPenjualan.pelanggan.trim()) {
+      alert('Nama pelanggan wajib diisi untuk metode pembayaran Utang!');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const subtotal = parseNum(formPenjualan.jumlah) * parseNum(formPenjualan.hargaJual);
@@ -447,7 +515,7 @@ export default function Transaksi() {
             })()}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan (opsional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan {formPenjualan.metodePembayaran === "Utang" ? <span className="text-red-500">*wajib</span> : "(opsional)"}</label>
               <input
                 type="text"
                 placeholder="Nama pelanggan"
@@ -467,8 +535,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact('penjualan', formPenjualan.metodePembayaran, (parseNum(formPenjualan.jumlah) * parseNum(formPenjualan.hargaJual)) - parseNum(formPenjualan.diskon) - parseNum(formPenjualan.biayaAdmin) - parseNum(formPenjualan.komisi))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -566,8 +643,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact('bayar_beban', formBayarBeban.metodePembayaran, parseNum(formBayarBeban.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -632,8 +718,17 @@ export default function Transaksi() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan (opsional)</label>
-              <input type="text" placeholder="Nama pelanggan" value={genericForm.extraField} onChange={(e) => setGenericForm({ ...genericForm, extraField: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700 placeholder-slate-400" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Pelanggan (yang memiliki utang)</label>
+              <select 
+                value={genericForm.extraField} 
+                onChange={(e) => setGenericForm({ ...genericForm, extraField: e.target.value })} 
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700"
+              >
+                <option value="">-- Pilih pelanggan --</option>
+                {piutangList.map((p, idx) => (
+                  <option key={idx} value={p.nama}>{p.nama} - Sisa Utang: Rp {p.sisaUtang.toLocaleString('id-ID')}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -642,8 +737,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -708,8 +812,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -769,8 +882,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -830,8 +952,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -903,8 +1034,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -964,8 +1104,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
@@ -1026,8 +1175,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Bayar Cicilan Pinjaman"></textarea>
@@ -1081,8 +1239,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Retur Penjualan"></textarea>
@@ -1136,8 +1303,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Retur Pembelian"></textarea>
@@ -1177,8 +1353,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Diskon Penjualan"></textarea>
@@ -1266,8 +1451,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Bayar Ongkir"></textarea>
@@ -1304,15 +1498,31 @@ export default function Transaksi() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Akun Debit</label>
-                <select disabled className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none text-slate-700 cursor-not-allowed">
-                  <option>Beban Lain-lain</option>
-                </select>
+                <input 
+                  type="text" 
+                  list="akunDebitList"
+                  placeholder="Ketik nama akun..."
+                  value={genericForm.extraField}
+                  onChange={(e) => setGenericForm({ ...genericForm, extraField: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] text-slate-700"
+                />
+                <datalist id="akunDebitList">
+                  <option value="Beban Lain-lain" />
+                  <option value="Beban Gaji" />
+                  <option value="Beban Sewa" />
+                  <option value="Beban Listrik & Air" />
+                  <option value="Beban Pemasaran" />
+                  <option value="Perlengkapan" />
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Akun Kredit</label>
-                <select disabled className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none text-slate-700 cursor-not-allowed">
-                  <option>Kas / Bank</option>
-                </select>
+                <input 
+                  type="text" 
+                  disabled 
+                  value={genericForm.metodePembayaran === 'Utang' ? 'Utang' : 'Kas / Bank'} 
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none text-slate-700 cursor-not-allowed" 
+                />
               </div>
             </div>
             <div>
@@ -1321,8 +1531,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact(activeForm, genericForm.metodePembayaran, parseNum(genericForm.nominal))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea value={genericForm.keterangan} onChange={(e) => setGenericForm({ ...genericForm, keterangan: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b7b3f] min-h-[80px] text-slate-700" placeholder="Transaksi Lainnya"></textarea>
@@ -1407,8 +1626,17 @@ export default function Transaksi() {
                 <option>Tunai</option>
                 <option>Transfer Bank</option>
                 <option>QRIS</option>
+              <option>Utang</option>
               </select>
             </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-start gap-2.5 mt-4">
+              <Icon icon="mdi:information-outline" className="text-blue-500 w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Dampak Jurnal Akuntansi</p>
+                <p className="text-xs text-blue-600 mt-0.5">{getJournalImpact('pembelian_barang', formPembelian.metodePembayaran, parseNum(formPembelian.jumlah) * parseNum(formPembelian.hargaBeli))}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
               <textarea
