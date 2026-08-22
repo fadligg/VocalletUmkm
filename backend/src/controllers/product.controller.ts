@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
+import { invalidateUserCache } from '../lib/cache';
 
 export const getProducts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -62,6 +63,8 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
         imageUrl,
       },
     });
+    
+    invalidateUserCache(userId);
     res.status(201).json(product);
   } catch (error) {
     res.status(500).json({ message: 'Failed to create product', error });
@@ -98,6 +101,8 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
       },
     });
+    
+    invalidateUserCache(userId);
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update product', error });
@@ -122,6 +127,8 @@ export const deleteProduct = async (req: AuthRequest, res: Response): Promise<vo
     await prisma.product.delete({
       where: { id: Number(id) },
     });
+    
+    invalidateUserCache(userId);
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete product', error });

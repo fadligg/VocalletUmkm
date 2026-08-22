@@ -52,14 +52,6 @@ export default function PilihanZakat() {
       icon: <Icon icon="mdi:hand-heart-outline" className="w-6 h-6" />
     },
     {
-      id: 'perdagangan',
-      title: 'Zakat Perdagangan',
-      description: 'Zakat atas aset lancar dan laba bersih dari usaha',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      icon: <Icon icon="mdi:storefront-outline" className="w-6 h-6" />
-    },
-    {
       id: 'maal',
       title: 'Zakat Maal (Harta)',
       description: 'Zakat atas harta kekayaan, emas, perak, dan tabungan',

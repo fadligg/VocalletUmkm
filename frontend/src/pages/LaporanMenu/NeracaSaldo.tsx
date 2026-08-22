@@ -5,12 +5,14 @@ import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
 
-const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu'];
+const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu', 'Kustom'];
 
 export default function NeracaSaldo() {
   const navigate = useNavigate();
   const [selectedPeriode, setSelectedPeriode] = useState('Tahun ini');
   const [isPeriodeOpen, setIsPeriodeOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [neracaSaldoData, setNeracaSaldoData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +24,13 @@ export default function NeracaSaldo() {
         return;
       }
       try {
-        const res = await axios.get('http://localhost:5001/api/laporan/neracasaldo', {
+        let url = 'http://localhost:5001/api/laporan/neracasaldo';
+        if (selectedPeriode === 'Kustom' && startDate && endDate) {
+          url += `?startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedPeriode !== 'Kustom') {
+          url += `?periode=${selectedPeriode}`;
+        }
+        const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setNeracaSaldoData(res.data);
@@ -32,8 +40,12 @@ export default function NeracaSaldo() {
         setLoading(false);
       }
     };
-    fetchNeracaSaldo();
-  }, [navigate]);
+    
+    if (selectedPeriode !== 'Kustom' || (selectedPeriode === 'Kustom' && startDate && endDate)) {
+      setLoading(true);
+      fetchNeracaSaldo();
+    }
+  }, [navigate, selectedPeriode, startDate, endDate]);
 
   const handleExportExcel = () => {
     exportToExcel(neracaSaldoData, `Neraca_Saldo_${selectedPeriode}.xlsx`);
@@ -132,7 +144,28 @@ export default function NeracaSaldo() {
               </>
             )}
           </div>
-          <p className="text-sm text-slate-400 font-medium">31 Desember 2025 - 30 Desember 2026</p>
+          {selectedPeriode === 'Kustom' && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Dari Tanggal</label>
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sampai Tanggal</label>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

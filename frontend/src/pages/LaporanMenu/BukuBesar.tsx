@@ -22,7 +22,7 @@ const AKUN_LIST = [
   { id: '6004', name: 'Beban Lain-lain' },
 ];
 
-const BULAN_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini'];
+const BULAN_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Kustom'];
 
 export default function BukuBesar() {
   const navigate = useNavigate();
@@ -31,6 +31,8 @@ export default function BukuBesar() {
   
   const [selectedBulan, setSelectedBulan] = useState('Bulan ini');
   const [isBulanOpen, setIsBulanOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const [bukuBesarData, setBukuBesarData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,13 @@ export default function BukuBesar() {
         return;
       }
       try {
-        const res = await axios.get(`http://localhost:5001/api/laporan/bukubesar?kodeAkun=${selectedAkun}`, {
+        let url = `http://localhost:5001/api/laporan/bukubesar?kodeAkun=${selectedAkun}`;
+        if (selectedBulan === 'Kustom' && startDate && endDate) {
+          url += `&startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedBulan !== 'Kustom') {
+          url += `&periode=${selectedBulan}`;
+        }
+        const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setBukuBesarData(res.data);
@@ -54,8 +62,11 @@ export default function BukuBesar() {
         setLoading(false);
       }
     };
-    fetchBukuBesar();
-  }, [selectedAkun, navigate]);
+    
+    if (selectedBulan !== 'Kustom' || (selectedBulan === 'Kustom' && startDate && endDate)) {
+      fetchBukuBesar();
+    }
+  }, [selectedAkun, selectedBulan, startDate, endDate, navigate]);
 
   const handleExportExcel = () => {
     exportToExcel(bukuBesarData, `Buku_Besar_${selectedAkun}.xlsx`);
@@ -195,7 +206,28 @@ export default function BukuBesar() {
               </>
             )}
           </div>
-          <p className="text-sm text-slate-400 font-medium">31 Juli 2026 - 30 Agustus 2026</p>
+          {selectedBulan === 'Kustom' && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Dari Tanggal</label>
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sampai Tanggal</label>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

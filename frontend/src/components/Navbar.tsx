@@ -32,6 +32,11 @@ export default function Navbar() {
       }
     };
     fetchBusiness();
+
+    window.addEventListener('profileUpdated', fetchBusiness);
+    return () => {
+      window.removeEventListener('profileUpdated', fetchBusiness);
+    };
   }, []);
 
   return (
@@ -42,10 +47,6 @@ export default function Navbar() {
       </Link>
       
       <div className="flex items-center gap-4">
-        {/* Moon icon for dark mode */}
-        <button className="text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
-          <Icon icon="mdi:moon-waning-crescent" className="w-6 h-6" />
-        </button>
         {/* User Avatar with dynamic initial or logo */}
         <Link to="/profil" className="cursor-pointer">
           <div className="w-9 h-9 bg-[#0b7b3f] rounded-full flex items-center justify-center text-white font-semibold overflow-hidden relative">

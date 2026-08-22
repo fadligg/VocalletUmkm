@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
+import { cache, invalidateUserCache } from '../lib/cache';
 
 export const setupBusiness = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -42,6 +43,7 @@ export const setupBusiness = async (req: AuthRequest, res: Response): Promise<vo
       }
     });
 
+    invalidateUserCache(userId);
     res.status(201).json({ message: 'Business setup successful', business });
   } catch (error: any) {
     console.error('Setup business error:', error);
@@ -57,6 +59,13 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    const cacheKey = `business_user_${userId}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      res.status(200).json(cachedData);
+      return;
+    }
+
     const business = await prisma.business.findFirst({
       where: { userId },
       orderBy: { id: 'desc' }
@@ -67,9 +76,11 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Fetch transactions and products to calculate real stats
-    const transactions = await prisma.transaction.findMany({
-      where: { userId }
+    // Fetch aggregated transactions to calculate real stats efficiently
+    const groupedTransactions = await prisma.transaction.groupBy({
+      by: ['type', 'payment_method'],
+      where: { userId },
+      _sum: { amount: true }
     });
 
     const products = await prisma.product.findMany({
@@ -85,9 +96,9 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
     let kas = Number(business.saldoKas) || 0;
     let bank = Number(business.saldoBank) || 0;
 
-    transactions.forEach(t => {
-      const type = t.type;
-      const amount = Number(t.amount);
+    groupedTransactions.forEach(t => {
+      const type = (t.type || '').toLowerCase();
+      const amount = Number(t._sum.amount || 0);
       const isBank = t.payment_method === 'Transfer Bank' || t.payment_method === 'QRIS';
       const isUtang = t.payment_method === 'Utang' || t.payment_method === 'Kredit';
 
@@ -167,7 +178,10 @@ export const getBusiness = async (req: AuthRequest, res: Response): Promise<void
       saldoBank: bank
     };
 
-    res.status(200).json({ business, stats });
+    const responseData = { business, stats };
+    cache.set(cacheKey, responseData);
+
+    res.status(200).json(responseData);
   } catch (error: any) {
     console.error('Get business error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message || error.toString() });
@@ -191,7 +205,11 @@ export const updateBusiness = async (req: AuthRequest, res: Response): Promise<v
       tahunAkhir,
       tarifPajak,
       stokNegatif,
-      logoUrl
+      logoUrl,
+      saldoKas,
+      saldoBank,
+      latitude,
+      longitude
     } = req.body;
 
     const existingBusiness = await prisma.business.findFirst({
@@ -215,13 +233,72 @@ export const updateBusiness = async (req: AuthRequest, res: Response): Promise<v
         tahunAkhir: tahunAkhir ? new Date(tahunAkhir) : existingBusiness.tahunAkhir,
         tarifPajak: tarifPajak ? parseFloat(tarifPajak) : existingBusiness.tarifPajak,
         stokNegatif: stokNegatif !== undefined ? stokNegatif : existingBusiness.stokNegatif,
-        logoUrl: logoUrl !== undefined ? logoUrl : existingBusiness.logoUrl
+        logoUrl: logoUrl !== undefined ? logoUrl : existingBusiness.logoUrl,
+        saldoKas: saldoKas !== undefined ? parseFloat(saldoKas) : existingBusiness.saldoKas,
+        saldoBank: saldoBank !== undefined ? parseFloat(saldoBank) : existingBusiness.saldoBank,
+        latitude: latitude !== undefined ? parseFloat(latitude) : existingBusiness.latitude,
+        longitude: longitude !== undefined ? parseFloat(longitude) : existingBusiness.longitude
       }
     });
 
+    invalidateUserCache(userId);
     res.status(200).json({ message: 'Business updated successfully', business });
   } catch (error: any) {
     console.error('Update business error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message || error.toString() });
+  }
+};
+
+export const getAllBusinesses = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const businesses = await prisma.business.findMany({
+      select: {
+        id: true,
+        userId: true,
+        namaUsaha: true,
+        jenisUsaha: true,
+        logoUrl: true,
+        latitude: true,
+        longitude: true,
+      },
+      where: {
+        latitude: { not: null },
+        longitude: { not: null }
+      }
+    });
+
+    res.status(200).json({ businesses });
+  } catch (error: any) {
+    console.error('Get all businesses error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message || error.toString() });
+  }
+};
+
+export const getBusinessProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { userId: Number(userId) },
+    });
+
+    if (!business) {
+      res.status(404).json({ error: 'Business not found' });
+      return;
+    }
+
+    const products = await prisma.product.findMany({
+      where: { userId: Number(userId) },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.status(200).json({ business, products });
+  } catch (error: any) {
+    console.error('Get business profile error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message || error.toString() });
   }
 };

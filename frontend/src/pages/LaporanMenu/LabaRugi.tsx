@@ -5,12 +5,14 @@ import { Icon } from '@iconify/react';
 import { exportToExcel } from '../../tools/exportExcel';
 import { exportToPdf } from '../../tools/exportPdf';
 
-const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu'];
+const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Tahun lalu', 'Kustom'];
 
 export default function LabaRugi() {
   const navigate = useNavigate();
   const [selectedPeriode, setSelectedPeriode] = useState('Bulan ini');
   const [isPeriodeOpen, setIsPeriodeOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const [dataLabaRugi, setDataLabaRugi] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,13 @@ export default function LabaRugi() {
         return;
       }
       try {
-        const res = await axios.get('http://localhost:5001/api/laporan/labarugi', {
+        let url = 'http://localhost:5001/api/laporan/labarugi';
+        if (selectedPeriode === 'Kustom' && startDate && endDate) {
+          url += `?startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedPeriode !== 'Kustom') {
+          url += `?periode=${selectedPeriode}`;
+        }
+        const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setDataLabaRugi(res.data);
@@ -33,8 +41,12 @@ export default function LabaRugi() {
         setLoading(false);
       }
     };
-    fetchLabaRugi();
-  }, [navigate]);
+    
+    if (selectedPeriode !== 'Kustom' || (selectedPeriode === 'Kustom' && startDate && endDate)) {
+      setLoading(true);
+      fetchLabaRugi();
+    }
+  }, [navigate, selectedPeriode, startDate, endDate]);
 
   const penjualan = dataLabaRugi?.penjualan || 0;
   const hpp = dataLabaRugi?.hpp || 0;
@@ -136,7 +148,28 @@ export default function LabaRugi() {
               </>
             )}
           </div>
-          <p className="text-sm text-slate-400 font-medium">31 Juli 2026 - 30 Agustus 2026</p>
+          {selectedPeriode === 'Kustom' && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Dari Tanggal</label>
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sampai Tanggal</label>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

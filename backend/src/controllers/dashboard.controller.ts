@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
+import { cache } from '../lib/cache';
 
 export const getDashboardStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -12,6 +13,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
 
     const { periode, chartFilter } = req.query; // periode format: "YYYY-MM" (e.g. "2026-08")
     
+    const cacheKey = `dashboard_user_${userId}_${periode}_${chartFilter}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      res.status(200).json(cachedData);
+      return;
+    }
+    
     const business = await prisma.business.findFirst({
       where: { userId },
       orderBy: { id: 'desc' }
@@ -22,10 +30,25 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Fetch all transactions (optimized by letting backend process it instead of frontend)
-    const transactions = await prisma.transaction.findMany({
-      where: { userId }
+    // Optimized: Use database aggregation for all-time balances
+    const groupedAllTime = await prisma.transaction.groupBy({
+      by: ['type', 'payment_method'],
+      where: { userId },
+      _sum: { amount: true }
     });
+
+    // Optimized: Use database aggregation for current period income/expense
+    const startDate = periode ? new Date(`${periode}-01T00:00:00.000Z`) : undefined;
+    const endDate = periode && startDate ? new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59, 999) : undefined;
+    
+    let groupedCurrentPeriod: any[] = [];
+    if (startDate && endDate) {
+      groupedCurrentPeriod = await prisma.transaction.groupBy({
+        by: ['type', 'payment_method'],
+        where: { userId, date: { gte: startDate, lte: endDate } },
+        _sum: { amount: true }
+      } as any);
+    }
 
     const products = await prisma.product.findMany({
       where: { userId }
@@ -40,9 +63,9 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
     let kas = Number(business.saldoKas) || 0;
     let bank = Number(business.saldoBank) || 0;
 
-    transactions.forEach(t => {
+    groupedAllTime.forEach(t => {
       const type = (t.type || '').toLowerCase();
-      const amount = Number(t.amount);
+      const amount = Number(t._sum.amount || 0);
       const isBank = t.payment_method === 'Transfer Bank' || t.payment_method === 'QRIS';
       const isUtang = t.payment_method === 'Utang' || t.payment_method === 'Kredit';
 
@@ -51,19 +74,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
         else kas += val;
       };
 
-      const txDate = new Date(t.date);
-      const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-      const isCurrentPeriod = txMonth === periode;
-
       switch (type) {
         case 'penjualan':
-          if (isCurrentPeriod) pendapatan += amount;
           if (isUtang) piutang += amount;
           else addCash(amount);
           break;
         case 'diskon_penjualan':
         case 'retur_penjualan':
-          if (isCurrentPeriod) pendapatan -= amount;
           if (!isUtang) addCash(-amount);
           break;
         case 'pembelian_barang':
@@ -71,13 +88,11 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
           else addCash(-amount);
           break;
         case 'retur_pembelian':
-          if (isCurrentPeriod) beban -= amount;
           if (!isUtang) addCash(amount);
           break;
         case 'bayar_beban':
         case 'bayar_ongkir':
         case 'barang_rusak':
-          if (isCurrentPeriod) beban += amount;
           if (isUtang) utang += amount;
           else addCash(-amount);
           break;
@@ -106,6 +121,29 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       }
     });
 
+    groupedCurrentPeriod.forEach(t => {
+      const type = (t.type || '').toLowerCase();
+      const amount = Number(t._sum.amount || 0);
+      
+      switch (type) {
+        case 'penjualan':
+          pendapatan += amount;
+          break;
+        case 'diskon_penjualan':
+        case 'retur_penjualan':
+          pendapatan -= amount;
+          break;
+        case 'retur_pembelian':
+          beban -= amount;
+          break;
+        case 'bayar_beban':
+        case 'bayar_ongkir':
+        case 'barang_rusak':
+          beban += amount;
+          break;
+      }
+    });
+
     const labaBersih = pendapatan - beban;
 
     const nilaiPersediaan = products.reduce((total, p) => {
@@ -124,37 +162,36 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
     };
 
     // Calculate Chart Data
-    let filteredTx = transactions;
+    let chartStartDate: Date | undefined;
+    let chartEndDate: Date | undefined;
     const now = new Date();
 
     if (chartFilter === '7_hari') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      filteredTx = transactions.filter(tx => {
-        if (!tx.date) return false;
-        const d = new Date(tx.date);
-        return d >= sevenDaysAgo && d <= now;
-      });
+      chartStartDate = new Date();
+      chartStartDate.setDate(now.getDate() - 7);
+      chartEndDate = now;
     } else if (chartFilter === '30_hari') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      filteredTx = transactions.filter(tx => {
-        if (!tx.date) return false;
-        const d = new Date(tx.date);
-        return d >= thirtyDaysAgo && d <= now;
-      });
+      chartStartDate = new Date();
+      chartStartDate.setDate(now.getDate() - 30);
+      chartEndDate = now;
     } else if (periode) {
-      filteredTx = transactions.filter(tx => {
-        if (!tx.date) return false;
-        const txDate = new Date(tx.date);
-        const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-        return txMonth === periode;
-      });
+      chartStartDate = startDate;
+      chartEndDate = endDate;
     }
+
+    let chartWhereClause: any = { userId };
+    if (chartStartDate && chartEndDate) {
+      chartWhereClause.date = { gte: chartStartDate, lte: chartEndDate };
+    }
+
+    const chartTransactions = await prisma.transaction.findMany({
+      where: chartWhereClause,
+      select: { date: true, type: true, amount: true }
+    });
 
     const dailyData: Record<string, number> = {};
     
-    filteredTx.forEach(tx => {
+    chartTransactions.forEach(tx => {
       const type = (tx.type || '').toLowerCase();
       let chartAmount = 0;
       
@@ -197,7 +234,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       ],
     };
 
-    res.status(200).json({ business, stats, chartData });
+    const responseData = { business, stats, chartData };
+    cache.set(cacheKey, responseData);
+
+    res.status(200).json(responseData);
   } catch (error: any) {
     console.error('Get dashboard stats error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message || error.toString() });

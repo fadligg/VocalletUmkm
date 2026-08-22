@@ -102,6 +102,7 @@ const PedagangSekitar: React.FC = () => {
       const email = localStorage.getItem('vocallet_user_email') || 'Pembeli';
 
       if (token) {
+        // Broadcast lokasi pembeli agar terlihat oleh UMKM di PelangganSekitar
         fetch('https://menu.co-id.id/vocallet/api/locations/sync', {
           method: 'POST',
           headers: {
@@ -114,36 +115,28 @@ const PedagangSekitar: React.FC = () => {
             role: 'individual',
             metadata: { name: email }
           })
+        }).catch(err => console.error("Error broadcasting location:", err));
+
+        // Ambil daftar UMKM dari database lokal
+        fetch('http://localhost:5001/api/business/all', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
         })
         .then(res => res.json())
-        .then((data: any[]) => {
-          if (Array.isArray(data)) {
-            const parsedSellers = data
-              .filter((s: any) => {
-                if (s.role) return s.role === 'umkm' || s.role === 'UMKM';
-                if (s.metadata) return s.metadata.includes('nama_usaha');
-                return true;
-              })
-              .map(s => {
-              let name = "UMKM Anonim";
-              let type = "UMKM";
-              let logo = null;
-              if (s.metadata) {
-                try {
-                  const meta = JSON.parse(s.metadata);
-                  if (meta.nama_usaha) name = meta.nama_usaha;
-                  if (meta.logo_usaha) logo = meta.logo_usaha;
-                  if (meta.type) type = meta.type;
-                } catch(e){}
-              }
-              const dist = getDistance(currentLoc.lat, currentLoc.lng, parseFloat(s.lat), parseFloat(s.lng));
+        .then((data: any) => {
+          if (data.businesses && Array.isArray(data.businesses)) {
+            const parsedSellers = data.businesses.map((b: any) => {
+              const dist = getDistance(currentLoc.lat, currentLoc.lng, b.latitude, b.longitude);
               return {
-                id: s.user_id,
-                name: name,
-                type: type,
-                logo: logo,
-                lat: parseFloat(s.lat),
-                lng: parseFloat(s.lng),
+                id: b.userId,
+                name: b.namaUsaha || "UMKM Anonim",
+                type: b.jenisUsaha || "UMKM",
+                logo: b.logoUrl || null,
+                lat: b.latitude,
+                lng: b.longitude,
                 distance: formatDistance(dist)
               };
             });

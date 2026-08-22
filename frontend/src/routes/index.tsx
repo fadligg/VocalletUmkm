@@ -22,6 +22,7 @@ import ZakatFitrah from '../pages/Zakat/ZakatFitrah';
 import ZakatPerdagangan from '../pages/Zakat/ZakatPerdagangan';
 import ZakatMaal from '../pages/Zakat/ZakatMaal';
 import EdukasiZis from '../pages/Zakat/EdukasiZis';
+import Toko from '../pages/Toko';
 
 import JurnalUmum from '../pages/LaporanMenu/JurnalUmum';
 import BukuBesar from '../pages/LaporanMenu/BukuBesar';
@@ -68,6 +69,10 @@ export const router = createBrowserRouter([
       {
         path: '/profil-pembeli',
         element: <ProfilPembeli />,
+      },
+      {
+        path: '/toko/:id',
+        element: <Toko />,
       },
     ],
   },

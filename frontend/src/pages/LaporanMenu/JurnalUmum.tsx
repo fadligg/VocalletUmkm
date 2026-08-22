@@ -9,8 +9,12 @@ export default function JurnalUmum() {
   const navigate = useNavigate();
   const [selectedPeriode, setSelectedPeriode] = useState('Tahun ini');
   const [isPeriodeOpen, setIsPeriodeOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [jurnalData, setJurnalData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const PERIODE_LIST = ['Bulan ini', 'Bulan lalu', 'Tahun ini', 'Kustom'];
 
   useEffect(() => {
     const fetchJurnal = async () => {
@@ -20,7 +24,13 @@ export default function JurnalUmum() {
         return;
       }
       try {
-        const res = await axios.get('http://localhost:5001/api/laporan/jurnalumum', {
+        let url = 'http://localhost:5001/api/laporan/jurnalumum';
+        if (selectedPeriode === 'Kustom' && startDate && endDate) {
+          url += `?startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedPeriode !== 'Kustom') {
+          url += `?periode=${selectedPeriode}`;
+        }
+        const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setJurnalData(res.data);
@@ -30,8 +40,13 @@ export default function JurnalUmum() {
         setLoading(false);
       }
     };
-    fetchJurnal();
-  }, [navigate]);
+    
+    // Only fetch if not custom, or if custom and both dates are selected
+    if (selectedPeriode !== 'Kustom' || (selectedPeriode === 'Kustom' && startDate && endDate)) {
+      setLoading(true);
+      fetchJurnal();
+    }
+  }, [navigate, selectedPeriode, startDate, endDate]);
 
   const handleExportExcel = () => {
     exportToExcel(jurnalData, 'Jurnal_Umum.xlsx');
@@ -77,16 +92,74 @@ export default function JurnalUmum() {
       </div>
 
       {/* Filter Section */}
-      <div className="mb-6">
-        <div className="relative inline-block mb-3">
-          <select className="appearance-none bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl pl-4 pr-10 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm cursor-pointer">
-            <option>Bulan ini</option>
-            <option>Bulan lalu</option>
-            <option>Tahun ini</option>
-          </select>
-          <Icon icon="lucide:chevron-down" className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="mb-6 space-y-4">
+        <div className="relative z-20">
+          <div className="relative mb-2 w-40">
+            <button
+              type="button"
+              onClick={() => setIsPeriodeOpen(!isPeriodeOpen)}
+              className="flex justify-between items-center w-full bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm transition-all hover:bg-white"
+            >
+              <span>{selectedPeriode}</span>
+              <Icon 
+                icon="lucide:chevron-down" 
+                className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isPeriodeOpen ? 'rotate-180' : ''}`} 
+              />
+            </button>
+
+            {isPeriodeOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsPeriodeOpen(false)}
+                ></div>
+                <div className="absolute top-full left-0 mt-2 w-full bg-white/95 backdrop-blur-xl border border-white/80 rounded-xl shadow-[0_10px_40px_rgb(0,0,0,0.08)] z-20 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200">
+                  <div className="py-1">
+                    {PERIODE_LIST.map((periode) => (
+                      <button
+                        key={periode}
+                        onClick={() => {
+                          setSelectedPeriode(periode);
+                          setIsPeriodeOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none ${
+                          selectedPeriode === periode 
+                            ? 'bg-emerald-50 text-emerald-700 font-bold' 
+                            : 'text-slate-600 font-medium'
+                        }`}
+                      >
+                        {periode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          
+          {selectedPeriode === 'Kustom' && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Dari Tanggal</label>
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sampai Tanggal</label>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                />
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-sm text-slate-500 font-medium">31 Juli 2026 - 30 Agustus 2026</p>
       </div>
       
       {/* Table Section */}

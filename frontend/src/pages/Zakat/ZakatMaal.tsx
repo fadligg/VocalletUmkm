@@ -8,6 +8,10 @@ export default function ZakatMaal() {
   const [nilaiEmas, setNilaiEmas] = useState<number | ''>('');
   const [asetLain, setAsetLain] = useState<number | ''>('');
   const [hargaEmas, setHargaEmas] = useState<number>(1450000);
+  
+  const [isAuto, setIsAuto] = useState<boolean>(false);
+  const [labaBersih, setLabaBersih] = useState<number>(0);
+  const [isLoadingLaba, setIsLoadingLaba] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchGoldPrice = async () => {
@@ -31,10 +35,30 @@ export default function ZakatMaal() {
     }).format(value);
   };
 
+  useEffect(() => {
+    if (isAuto && labaBersih === 0) {
+      setIsLoadingLaba(true);
+      const token = localStorage.getItem('vocallet_token');
+      fetch('http://localhost:5001/api/business', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.stats) {
+          setLabaBersih(data.stats.labaBersih || 0);
+        }
+      })
+      .catch(err => console.error("Error fetching laba bersih:", err))
+      .finally(() => setIsLoadingLaba(false));
+    }
+  }, [isAuto, labaBersih]);
+
+  const totalHarta = isAuto 
+    ? labaBersih 
+    : Number(uangTunai || 0) + Number(nilaiEmas || 0) + Number(asetLain || 0);
+  const nishab = 85 * hargaEmas;
+
   const calculateZakat = () => {
-    const totalHarta = Number(uangTunai || 0) + Number(nilaiEmas || 0) + Number(asetLain || 0);
-    const nishab = 85 * hargaEmas;
-    
     if (totalHarta >= nishab) {
       return totalHarta * 0.025;
     }
@@ -42,8 +66,6 @@ export default function ZakatMaal() {
   };
 
   const totalZakat = calculateZakat();
-  const totalHarta = Number(uangTunai || 0) + Number(nilaiEmas || 0) + Number(asetLain || 0);
-  const nishab = 85 * hargaEmas;
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 pt-6 antialiased flex flex-col">
@@ -56,7 +78,25 @@ export default function ZakatMaal() {
       </div>
 
       <main className="flex-grow w-full max-w-[375px] mx-auto p-4 flex flex-col gap-6">
+        {/* Toggle Mode */}
+        <div className="bg-slate-200/70 p-1 rounded-xl flex items-center relative">
+          <button 
+            onClick={() => setIsAuto(false)}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all z-10 ${!isAuto ? 'bg-white text-[#008A43] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Hitung Manual
+          </button>
+          <button 
+            onClick={() => setIsAuto(true)}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all z-10 ${isAuto ? 'bg-white text-[#008A43] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Hitung Otomatis
+          </button>
+        </div>
+
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-4">
+          {!isAuto ? (
+            <>
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Uang Tunai / Tabungan</label>
             <div className="relative">
@@ -98,6 +138,31 @@ export default function ZakatMaal() {
               />
             </div>
           </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                  <Icon icon="mdi:chart-line" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Total Laba Bersih</h3>
+                  <p className="text-xs text-slate-500 font-medium">Diambil dari pencatatan keuangan</p>
+                </div>
+              </div>
+              
+              {isLoadingLaba ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-center gap-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></span>
+                  <span className="text-sm font-bold text-slate-500">Memuat data...</span>
+                </div>
+              ) : (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <span className="text-2xl font-extrabold text-slate-800">{formatRp(labaBersih)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className={`rounded-2xl p-5 shadow-md flex flex-col relative overflow-hidden transition-colors ${totalHarta >= nishab ? 'bg-[#008A43] text-white' : 'bg-slate-200 text-slate-500'}`}>

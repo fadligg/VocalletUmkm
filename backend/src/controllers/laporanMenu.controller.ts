@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
+import { cache } from '../lib/cache';
 
 // Helpers
 const getIsBank = (paymentMethod?: string | null) => {
@@ -15,6 +16,36 @@ const getIsUtang = (paymentMethod?: string | null) => {
   return pm === 'utang' || pm === 'kredit';
 };
 
+const getDateFilter = (query: any) => {
+  const { periode, startDate, endDate } = query;
+  if (startDate && endDate) {
+     return {
+        gte: new Date(`${startDate}T00:00:00.000Z`),
+        lte: new Date(`${endDate}T23:59:59.999Z`)
+     };
+  } else if (periode) {
+     const now = new Date();
+     const y = now.getFullYear();
+     const m = String(now.getMonth() + 1).padStart(2, '0');
+     if (periode === 'Bulan ini') {
+       return { gte: new Date(`${y}-${m}-01T00:00:00.000Z`) };
+     } else if (periode === 'Bulan lalu') {
+       let pm = now.getMonth();
+       let py = y;
+       if (pm === 0) { pm = 12; py--; }
+       const pms = String(pm).padStart(2, '0');
+       const lastDay = new Date(py, pm, 0).getDate();
+       return {
+         gte: new Date(`${py}-${pms}-01T00:00:00.000Z`),
+         lte: new Date(`${py}-${pms}-${lastDay}T23:59:59.999Z`)
+       };
+     } else if (periode === 'Tahun ini') {
+       return { gte: new Date(`${y}-01-01T00:00:00.000Z`) };
+     }
+  }
+  return undefined;
+};
+
 export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -23,11 +54,24 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
+    const { periode, startDate, endDate } = req.query;
+    const cacheKey = `neraca_user_${userId}_${periode}_${startDate}_${endDate}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) { res.status(200).json(cachedData); return; }
+
     const business = await prisma.business.findFirst({ where: { userId } });
     const saldoKasAwal = business ? Number(business.saldoKas) : 0;
     const saldoBankAwal = business ? Number(business.saldoBank) : 0;
 
-    const transactions = await prisma.transaction.findMany({ where: { userId } });
+    const dateFilter = getDateFilter(req.query);
+    const whereClause: any = { userId };
+    if (dateFilter) whereClause.date = dateFilter;
+
+    const groupedTransactions = await prisma.transaction.groupBy({
+      by: ['type', 'payment_method'],
+      where: whereClause,
+      _sum: { amount: true }
+    });
     const products = await prisma.product.findMany({ where: { userId } });
 
     let kas = saldoKasAwal;
@@ -38,9 +82,9 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
     let peralatan = 0; 
     let kendaraan = 0;
 
-    transactions.forEach(t => {
-      const type = t.type;
-      const amount = Number(t.amount);
+    groupedTransactions.forEach(t => {
+      const type = (t.type || '').toLowerCase();
+      const amount = Number(t._sum.amount || 0);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
 
@@ -106,12 +150,15 @@ export const getNeraca = async (req: AuthRequest, res: Response): Promise<void> 
     const kewajiban = utangUsaha + utangBank;
     const modalPemilik = totalAktiva - kewajiban; // Auto-balancing
 
-    res.json({
+    const responseData = {
+      namaUsaha: business?.namaUsaha || 'Nama Usaha',
       aktivaLancar: { kas, bank, piutangUsaha: piutang, persediaan },
       aktivaTetap: { peralatanUsaha: peralatan, kendaraan },
       kewajiban: { utangUsaha, utangBank },
       modal: { modalPemilik }
-    });
+    };
+    cache.set(cacheKey, responseData);
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching neraca:', error);
     res.status(500).json({ message: 'Gagal mengambil data neraca', error });
@@ -126,16 +173,29 @@ export const getLabaRugi = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const transactions = await prisma.transaction.findMany({ where: { userId } });
+    const { periode, startDate, endDate } = req.query;
+    const cacheKey = `labarugi_user_${userId}_${periode}_${startDate}_${endDate}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) { res.status(200).json(cachedData); return; }
+
+    const dateFilter = getDateFilter(req.query);
+    const whereClause: any = { userId };
+    if (dateFilter) whereClause.date = dateFilter;
+
+    const groupedTransactions = await prisma.transaction.groupBy({
+      by: ['type', 'description'],
+      where: whereClause,
+      _sum: { amount: true }
+    });
 
     let penjualan = 0;
     let hpp = 0;
     let totalBeban = 0;
     const bebanMap: Record<string, number> = {};
 
-    transactions.forEach(t => {
-      const type = t.type;
-      const amount = Number(t.amount);
+    groupedTransactions.forEach(t => {
+      const type = (t.type || '').toLowerCase();
+      const amount = Number(t._sum.amount || 0);
       const desc = t.description || 'Lainnya';
 
       switch (type) {
@@ -169,9 +229,11 @@ export const getLabaRugi = async (req: AuthRequest, res: Response): Promise<void
     const labaBersih = labaKotor - totalBeban;
     const bebanList = Object.keys(bebanMap).map(nama => ({ nama, nominal: bebanMap[nama] }));
 
-    res.json({
+    const responseData = {
       penjualan, hpp, labaKotor, beban: bebanList, totalBeban, labaBersih
-    });
+    };
+    cache.set(cacheKey, responseData);
+    res.json(responseData);
 
   } catch (error) {
     console.error('Error fetching laba rugi:', error);
@@ -187,19 +249,32 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    const { periode, startDate, endDate } = req.query;
+    const cacheKey = `neracasaldo_user_${userId}_${periode}_${startDate}_${endDate}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) { res.status(200).json(cachedData); return; }
+
     const business = await prisma.business.findFirst({ where: { userId } });
     const saldoKasAwal = business ? Number(business.saldoKas) : 0;
     const saldoBankAwal = business ? Number(business.saldoBank) : 0;
     
-    // Initial Modal is assumed to fund initial Kas and Bank
-    const modalAwal = saldoKasAwal + saldoBankAwal;
+    const dateFilter = getDateFilter(req.query);
+    const whereClause: any = { userId };
+    if (dateFilter) whereClause.date = dateFilter;
 
-    const transactions = await prisma.transaction.findMany({ where: { userId } });
+    const groupedTransactions = await prisma.transaction.groupBy({
+      by: ['type', 'payment_method', 'description'],
+      where: whereClause,
+      _sum: { amount: true }
+    });
     const products = await prisma.product.findMany({ where: { userId } });
 
     let kas = saldoKasAwal;
     let bank = saldoBankAwal;
     let persediaan = products.reduce((sum, p) => sum + (p.stock * Number(p.priceBuy)), 0);
+    
+    // Initial Modal is assumed to fund initial Kas, Bank, and Inventory
+    const modalAwal = saldoKasAwal + saldoBankAwal + persediaan;
     
     let piutang = 0;
     let utang = 0;
@@ -213,9 +288,9 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
     
     const bebanMap: Record<string, number> = {};
 
-    transactions.forEach(t => {
-      const type = t.type;
-      const amount = Number(t.amount);
+    groupedTransactions.forEach(t => {
+      const type = (t.type || '').toLowerCase();
+      const amount = Number(t._sum.amount || 0);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
       const desc = t.description || 'Beban Lainnya';
@@ -277,6 +352,13 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
           prive += amount;
           addCash(-amount);
           break;
+        default:
+          // Unrecognized transactions map to Beban Lainnya so they don't silently disappear
+          const unkKey = `Beban Tidak Dikenal (${type})`;
+          if (bebanMap[unkKey]) bebanMap[unkKey] += amount;
+          else bebanMap[unkKey] = amount;
+          if (isUtang) utang += amount; else addCash(-amount);
+          break;
       }
     });
 
@@ -313,6 +395,7 @@ export const getNeracaSaldo = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
+    cache.set(cacheKey, neracaSaldoData);
     res.json(neracaSaldoData);
 
   } catch (error) {
@@ -339,8 +422,12 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
     const saldoKasAwal = business ? Number(business.saldoKas) : 0;
     const saldoBankAwal = business ? Number(business.saldoBank) : 0;
 
+    const dateFilter = getDateFilter(req.query);
+    const whereClause: any = { userId };
+    if (dateFilter) whereClause.date = dateFilter;
+
     const transactions = await prisma.transaction.findMany({ 
-      where: { userId },
+      where: whereClause,
       orderBy: { date: 'asc' }
     });
 
@@ -361,7 +448,7 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -431,6 +518,11 @@ export const getBukuBesar = async (req: AuthRequest, res: Response): Promise<voi
           else entries.push({ accountCode: '2001', debit: amount, credit: 0 });
           entries.push({ accountCode: '5002', debit: 0, credit: amount });
           break;
+        default:
+          entries.push({ accountCode: '6004', debit: amount, credit: 0 });
+          if (isUtang) entries.push({ accountCode: '2001', debit: 0, credit: amount });
+          else entries.push({ accountCode: kasAccountCode, debit: 0, credit: amount });
+          break;
       }
 
       const relevantEntries = entries.filter(e => e.accountCode === kodeAkun);
@@ -475,8 +567,12 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    const dateFilter = getDateFilter(req.query);
+    const whereClause: any = { userId };
+    if (dateFilter) whereClause.date = dateFilter;
+
     const transactions = await prisma.transaction.findMany({ 
-      where: { userId },
+      where: whereClause,
       orderBy: { date: 'desc' }
     });
 
@@ -484,7 +580,7 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
     const formatDate = (date: Date) => date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
     transactions.forEach(t => {
-      const type = t.type;
+      const type = (t.type || '').toLowerCase();
       const amount = Number(t.amount);
       const isBank = getIsBank(t.payment_method);
       const isUtang = getIsUtang(t.payment_method);
@@ -556,6 +652,11 @@ export const getJurnalUmum = async (req: AuthRequest, res: Response): Promise<vo
           if (!isUtang) entries.push({ accountCode: kasAccountCode, accountName: kasAccountName, debit: amount, credit: 0 });
           else entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: amount, credit: 0 });
           entries.push({ accountCode: '5002', accountName: 'Retur Pembelian', debit: 0, credit: amount });
+          break;
+        default:
+          entries.push({ accountCode: '6004', accountName: `Beban Tidak Dikenal (${type})`, debit: amount, credit: 0 });
+          if (isUtang) entries.push({ accountCode: '2001', accountName: 'Utang Usaha', debit: 0, credit: amount });
+          else entries.push({ accountCode: kasAccountCode, accountName: kasAccountName, debit: 0, credit: amount });
           break;
       }
 
